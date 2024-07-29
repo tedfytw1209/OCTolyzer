@@ -1,0 +1,50 @@
+# CONFIGURATION FILE FOR SETTING UP OCT AND SLO ANALYSIS OF HEIDELBERG DATA
+# MAKE SURE NAMES AND INPUTS ARE SEPARATED WITH ": " [colon-spacebar]
+
+# This is the folder which .vol files will be read from and analysed
+analysis_directory: C:\Users\s1522100\Documents\PhD Work\Python Scripts\Github\OCTolyzer\analyze\demo
+
+# This is the folder which will save all results into
+output_directory: C:\Users\s1522100\Documents\PhD Work\Python Scripts\Github\OCTolyzer\analyze\output
+
+--------------------------------------------------------------------------------------------------------
+
+# For typical use case, leave settings below untouched (all set to 1)
+# For debugging any unexpected errors, set robust_run to 0. 
+# Otherwise, 1 will skip over any files which throw up unexpected error.
+robust_run: 1
+
+# Option to save out segmentation masks and raw images of .vol scan per individual.
+save_individual_segmentations: 1
+save_individual_images: 1
+
+# This is to flag that you want to brighten the retinal and choroidal structures of an OCT B-scan
+# and compensate for superficial retinal vessel shadowing
+preprocess_bscans: 1
+
+# By default, the choroid will be analysed. This is a flag to not save out choroid-related results
+analyse_choroid: 1
+
+# By default, the accompanying SLO image will be analysed, but this is a flag to toggle SLO analysis off/on (0/1)
+analyse_slo: 0
+
+# This is to specify specific retinal thickness map slabs, i.e. ILM_OPL, RNFL_PR1, etc. 
+# Only valid for OCT Volume scans.
+custom_maps: 0
+
+# This flags that ALL inner retinal layer thickness maps will be computed. 
+# Only valid for OCT Volume scans.
+analyse_all_maps: 0
+
+# By default, ETDRS grid will be measured for OCT Volume data. This is a flag for measuring a square 8x8 posterior pole grid.
+# Only valid for OCT Volume scans.
+analyse_square_grid: 0
+
+# Option to measure choroid A-scan, column-wise (vertical) or locally perpendicular to 
+# upper boundary (perpendicular)
+# Only valid for OCT Volume and Linescan data
+choroid_measure_type: perpendicular
+
+# Distance either side of fovea to measure structures in H-line, V-line scans in microns, i.e. 500 microns, 3000 microns, etc.
+# Only valid for OCT Linescan data, centred at the fovea (H-line/V-line)
+linescan_roi_distance: 3000

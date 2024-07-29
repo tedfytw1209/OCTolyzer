@@ -1,0 +1,4 @@
+conda create -n oct-analysis python=3.11
+conda activate oct-analysis
+pip3 install torch torchvision
+pip3 install scikit-image opencv-python scikit-learn tqdm seaborn notebook jupyterlab ipywidgets eyepy timm openpyxl segmentation_models_pytorch SimpleITK
