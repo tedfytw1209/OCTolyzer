@@ -516,9 +516,8 @@ def analyse(path,
         # Organise measurements of SLO into dataframe
         slo_df = utils.nested_dict_to_df(slo_dict).reset_index()
         slo_df = slo_df.rename({"level_0":"vessel_map", "level_1":"zone"}, axis=1, inplace=False)
-        reorder_cols = ["vessel_map", "zone", "fractal_dimension", "vessel_perf_density", "average_width_all", 
-                        "average_caliber", "tortuosity_density", "tortuosity_curvebychord", 
-                        "tortuosity_sqcurvature", "CRAE_Knudtson", "CRVE_Knudtson"]
+        reorder_cols = ["vessel_map", "zone", "fractal_dimension", "vessel_density", "average_global_calibre", 
+                        "average_local_calibre", "tortuosity_density", "CRAE_Knudtson", "CRVE_Knudtson"]
         slo_df = slo_df[reorder_cols]
 
         # Compute AVR
@@ -555,7 +554,7 @@ def analyse(path,
         slo_df = pd.concat([slo_df, avr_df], axis=0).reset_index(drop=True)
 
         # Collect dataframes per zone
-        slo_df.loc[slo_df.zone.isin(["B", "C"]), ["fractal_dimension", "vessel_perf_density", "average_width_all"]] = -1
+        slo_df.loc[slo_df.zone.isin(["B", "C"]), ["fractal_dimension", "vessel_density", "average_global_calibre"]] = -1
         slo_dfs = []
         for z in all_grids:
             df = slo_df[slo_df.zone == z].reset_index(drop=True)

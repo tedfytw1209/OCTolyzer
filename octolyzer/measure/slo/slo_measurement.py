@@ -277,8 +277,8 @@ def vessel_metrics(window: Window,
         fractal_dimension, vessel_perf_density, average_width_all = global_cal(window)
         #print("global DONE")
         slo_dict["fractal_dimension"] = fractal_dimension
-        slo_dict["vessel_perf_density"] = vessel_perf_density
-        slo_dict["average_width_all"] = average_width_all
+        slo_dict["vessel_density"] = vessel_perf_density
+        slo_dict["average_global_calibre"] = average_width_all
     
         # detect individual vessels, similar to skelentonisation but detects individual vessels, and
         # splits them at any observed intersection
@@ -333,12 +333,12 @@ def vessel_metrics(window: Window,
     
                 # t2 measures the curve length of the vessel divided by the chord length.
                 #print(i, "DISTANCE_TORT")
-                t2 += distance_measure_tortuosity(vessel[0], vessel[1])
+                # t2 += distance_measure_tortuosity(vessel[0], vessel[1])
     
                 # Measure curvature based on discrete derivatives to estimate curvature, and integrate
                 # along vessels, https://pubmed.ncbi.nlm.nih.gov/10193892/ (1999, 367 citations...)
                 #print(i, "SQCURVE_TORT")
-                t4 += squared_curvature_tortuosity(vessel[0], vessel[1])
+                # t4 += squared_curvature_tortuosity(vessel[0], vessel[1])
     
                 # td measures curve_chord_ratio for subvessel segments per inflection point 
                 # and cumulatively add them, and scale by number of inflections and overall curve length
@@ -371,10 +371,10 @@ def vessel_metrics(window: Window,
             average_caliber = (vessel_total_count/tcurve)*retina.resolution
     
         # collect outputs
-        slo_dict["tortuosity_curvebychord"] = t2
-        slo_dict["tortuosity_sqcurvature"] = t4
+        # slo_dict["tortuosity_curvebychord"] = t2
+        # slo_dict["tortuosity_sqcurvature"] = t4
         slo_dict["tortuosity_density"] = td
-        slo_dict["average_caliber"] = average_caliber
+        slo_dict["average_local_calibre"] = average_caliber
         
         # Compatibility for multuple windows, this takes all individual, average vessel widths
         # and collects them into a single list

@@ -147,9 +147,8 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
                     flat_slo_df = pd.concat([flat_slo_df, df_flatten], axis=1)    
 
                 # Order feature columns by importance in literature
-                order_str = ["fractal_dimension", "vessel_perf_density", "tortuosity_density", 'average_caliber', 
-                             'average_width_all', 'CRAE_Knudtson', 'CRVE_Knudtson', 'AVR', 
-                             'tortuosity_curvebychord', 'tortuosity_sqcurvature']
+                order_str = ["fractal_dimension", "vessel_density", "tortuosity_density", 'average_global_calibre', 
+                             'average_local_calibre', 'CRAE_Knudtson', 'CRVE_Knudtson', 'AVR']
                 order_str_rv = [col+f"_{vtype}_{rtype}" 
                                     for rtype in rtypes[::-1] 
                                         for vtype in vtypes for col in order_str]
