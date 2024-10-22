@@ -18,7 +18,7 @@ from pathlib import Path, PosixPath, WindowsPath
 
 from octolyzer.measure.bscan.thickness_maps import grid
 from octolyzer.segment.octseg import choroidalyzer_inference, deepgpet_inference
-from octolyzer.measure.bscan import bscan_measurements, ppole_measurements
+from octolyzer.measure.bscan import bscan_measurements
 from octolyzer.measure.bscan.thickness_maps import map as map_module
 from octolyzer import analyse_slo, utils, collate_data
 
@@ -413,11 +413,20 @@ All measurements are made with respect to the image axis (vertical) as this is a
             # Pad thickness with zeros if segmentation doesn't extend to entire image
             stx, enx = tr[0][0,[0,-1],0]
             if thickness.shape[0] < N:
-                msg = f"\nWARNING: Peripapillary segmentation for layer {key} missing {np.round(100*((stx+(N-enx))/N),2)}% pixels. Padding thickness array with 0s. Please check segmentation.\n"
+                msg = f"\nWARNING: Peripapillary segmentation for layer {key} missing {np.round(100*((stx+(N-enx))/N),2)}% pixels. Interpolating thickness array linearly. Please check segmentation.\n"
                 logging_list.append(msg)
                 if verbose:
                     print(msg)
-                thickness = np.pad(thickness, (max(0,stx-1), max(0,N-enx)))
+                    
+                # pad missing values with NaNs and then wrap array using opposite edges as the thickness array should be continuous at each end
+                thickness_padded = np.pad(thickness, (max(0,stx-1), max(0,(N-1)-enx)), constant_values=np.nan)
+                thickness_padded = np.pad(thickness_padded, (N//2,N//2), mode='wrap')
+
+                # Linear inteprolate across NaNs and slice outinterpolated thickness array
+                x_grid = np.arange(2*N)
+                where_nans = np.isnan(thickness_padded)
+                thickness_padded[where_nans]= np.interp(x_grid[where_nans], x_grid[~where_nans], thickness_padded[~where_nans])
+                thickness = thickness_padded[N//2:-N//2]
 
             # Align the thickness vector, depending on laterality
             if eye == 'Right':
