@@ -74,7 +74,8 @@ def create_circular_grids(circle_mask, angle=0):
 
     relabel = 0
     angle_sign = np.sign(angle)
-    angle = angle % (angle_sign*360)
+    if angle != 0:
+        angle = angle % (angle_sign*360)
     if abs(angle) > 44:
         rem = (abs(angle)-1) // 44
         angle += -1*angle_sign * 89 
