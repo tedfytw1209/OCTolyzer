@@ -786,14 +786,41 @@ def align_peripapillary_data(metadata, fovea_at_slo, slo_acq, slo_avimout, fname
     # Work out reference line between fovea and user-specified optic disc center. 
     Xy =  np.concatenate([od_user_center[np.newaxis], fovea_at_slo[np.newaxis]], axis=0)
     linmod = LinearRegression().fit(Xy[:,0].reshape(-1,1), Xy[:,1])
-    x_grid = np.arange(min(Xy[0,0], Xy[1,0]), max(Xy[0,0], Xy[1,0])).astype(int)
+
+    # Sample line coordinates
+    x_grid = np.linspace(min(Xy[0,0], Xy[1,0]), max(Xy[0,0], Xy[1,0]), 1000).astype(int)
     y_grid = linmod.predict(x_grid.reshape(-1,1)).astype(int)
-    
+
+    # Extract coordinates to compare directly
+    line_pts = np.array([x_grid,y_grid]).T
+    circ_pts = np.argwhere(circ_mask == 1)[:,[1,0]]
+
+    # Elementwise comparison to get pixel coord along line of acquisition colinear with fovea and OD centre
+    dist_mins = []
+    for pt in line_pts:
+        dist_mins.append(((circ_pts - pt)**2).sum(axis=1).min())
+    dist_mins = np.array(dist_mins)
+
     # Intersection of reference line and circular acquisition line is where the temporal
     # midpoint
-    temp_mid_idx = np.argwhere(circ_mask[(y_grid, x_grid)] == 1)[0]
-    temporal_mid = np.array((x_grid[temp_mid_idx], y_grid[temp_mid_idx])).reshape(-1)
-    
+    temp_mid_idx = ((circ_pts - line_pts[dist_mins.argmin()])**2).sum(axis=1).argmin()
+    temporal_mid = circ_pts[temp_mid_idx]
+
+    # Old, simple version before 22/10/2024, replaced by lines 790 -- 807
+    # x_grid = np.arange(min(Xy[0,0], Xy[1,0]), max(Xy[0,0], Xy[1,0])).astype(int)
+    # temp_mid_idx = np.argmax(circ_mask[(y_grid, x_grid)] == 1)
+    # temporal_mid = np.array((x_grid[temp_mid_idx], y_grid[temp_mid_idx])).reshape(-1)
+
+    # For visualising intersection point detection
+    # plt.imshow(circ_mask)
+    # plt.scatter(od_user_center[0], od_user_center[1])
+    # plt.scatter(od_mask_center[0], od_mask_center[1])
+    # plt.plot(Xy[:,0], Xy[:,1])
+    # plt.plot(x_grid, y_grid, linestyle='--')
+    # plt.plot(line_pts[:,0], line_pts[:,1])
+    # plt.scatter(circ_pts[:,0], circ_pts[:,1])
+    # plt.scatter(temporal_mid[0], temporal_mid[1])
+
     # Work out where this temporal midpoint is along the peripapillary OCT B-can (A-scan
     # location). We use this value to align our thickness profile to, i.e. shift
     # the peripapillary OCT B-scan in order for the central A-scan to be where the middle
@@ -832,6 +859,7 @@ def align_peripapillary_data(metadata, fovea_at_slo, slo_acq, slo_avimout, fname
     plt.close()
 
     return od_mask_center, offset_ratio, ascan_idx_temp0
+
 
 
 def compute_opticdisc_radius(fovea, od_centre, od_mask):

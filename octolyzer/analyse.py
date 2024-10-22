@@ -392,7 +392,12 @@ All measurements are made with respect to the image axis (vertical) as this is a
             logging_list.append(msg)
             if verbose:
                 print(msg)
-            ascan_idx_temp0 = N//2
+
+            # If not SLO, default alignment for temporal midpoint depends on laterality
+            if eye == 'Right':
+                ascan_idx_temp0 = N//2
+            else:
+                ascan_idx_temp0 = 0
 
         # Measure thickness arrays per segmented layer
         measure_dict = {}
@@ -414,16 +419,23 @@ All measurements are made with respect to the image axis (vertical) as this is a
                     print(msg)
                 thickness = np.pad(thickness, (max(0,stx-1), max(0,N-enx)))
 
-            # Align the thickness vector
-            align_idx = N//2 - ascan_idx_temp0
-            if align_idx > 0:
-                align_thickness = np.pad(thickness, (align_idx, 0), mode="reflect")[:N]
+            # Align the thickness vector, depending on laterality
+            if eye == 'Right':
+                align_idx = N//2 - ascan_idx_temp0
+                if align_idx > 0:
+                    align_thickness = np.pad(thickness, (align_idx, 0), mode="wrap")[:N]
+                else:
+                    align_thickness = np.pad(thickness, (0, -align_idx), mode="wrap")[-align_idx:]
             else:
-                align_thickness = np.pad(thickness, (0, -align_idx), mode="reflect")[align_idx:]
+                align_idx = ascan_idx_temp0 - N//2
+                if align_idx > 0:
+                    align_thickness = np.pad(thickness, (0, align_idx), mode="wrap")[align_idx:]
+                else:
+                    align_thickness = np.pad(thickness, (-align_idx, 0), mode="wrap")[:N]
 
             # We create a moving average, a smoothed version of the raw aligned thickness values
             ma_idx = 32
-            align_thickness_padded = np.pad(align_thickness, (ma_idx,ma_idx), mode="reflect")
+            align_thickness_padded = np.pad(align_thickness, (ma_idx,ma_idx), mode="wrap")
             moving_avg = pd.Series(align_thickness_padded).rolling(window=ma_idx,
                                                                     center=True).mean().values[ma_idx:-ma_idx]
             

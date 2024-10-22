@@ -67,12 +67,18 @@ def create_circular_grids(circle_mask, angle=0):
     output_shape = circle_mask.shape
     c_y, c_x = meas.centroid(circle_mask).astype(int)
     radius = int(circle_mask[:,c_x].sum()/2)
-    # print(radius)
-    # print(c_x, c_y)
     M, N = output_shape
     circ_idx = np.array(np.where(circle_mask)).T
     x, y = circ_idx[:,1], circ_idx[:,0]
     all_angles = 180/np.pi*np.arctan((c_x-x)/(c_y-y+1e-8))
+
+    relabel = 0
+    angle_sign = np.sign(angle)
+    angle = angle % (angle_sign*360)
+    if abs(angle) > 44:
+        rem = (abs(angle)-1) // 44
+        angle += -1*angle_sign * 89 
+        relabel += rem
 
     # Select pixels which represent superior and inferior regions, based on angle of elevation of points
     # along circular mask relative to horizontal axis (above 45* and below -45*)
@@ -107,7 +113,19 @@ def create_circular_grids(circle_mask, angle=0):
         etdrs_masks = [etdrs_masks[i] for i in [0,2,1,3]]
     else:
         etdrs_masks = [etdrs_masks[i] for i in [0,3,1,2]]
-    
+
+    # Relabelling if angle is outwith [-44, 44]
+    if relabel == 1:
+        if angle_sign > 0:
+            etdrs_masks = [etdrs_masks[i] for i in [3,2,1,0]]
+        elif angle_sign < 0:
+            etdrs_masks = [etdrs_masks[i] for i in [1,2,3,0]]
+    elif relabel == 2:
+        if angle_sign > 0:
+            etdrs_masks = [etdrs_masks[i] for i in [3,2,1,0]]
+        elif angle_sign < 0:
+            etdrs_masks = [etdrs_masks[i] for i in [1,2,3,0]]
+                
     return etdrs_masks
 
 
