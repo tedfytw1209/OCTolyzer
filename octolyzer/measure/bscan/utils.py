@@ -176,17 +176,19 @@ def curve_location(curve, distance=2000, ref_idx=400, scale=(11.49,3.87), verbos
     idx_l = ref_idx - np.argmin(cumsum_l < distance)
     idx_r = ref_idx + np.argmin(cumsum_r < distance)
     if (idx_l == ref_idx) and distance > 200:
-        if verbose==1:
-            logging.warning(f"""Segmentation not long enough for {distance}um left of fovea.
-                Extend segmentation or reduce macula_rum to prevent this from happening.
-                Returning 0s.""")
-        return None
+        msg = f"""Segmentation not long enough for {distance}um left of fovea.
+Extend segmentation or reduce region of interest to prevent this from happening.
+Returning -1s."""
+        if verbose:
+            print(msg)
+        return None, np.nan
     if (idx_r == ref_idx) and distance > 200:
-        if verbose==1:
-            logging.warning(f"""Segmentation not long enough for {distance}um right of fovea. 
-                Extend segmentation or reduce macula_rum to prevent this from happening.
-                Returning 0s.""")
-        return None
+        msg = f"""Segmentation not long enough for {distance}um right of fovea. 
+Extend segmentation or reduce region of interest to prevent this from happening.
+Returning -1s."""
+        if verbose:
+            print(msg)
+        return np.nan, None
 
     return idx_l, idx_r
 

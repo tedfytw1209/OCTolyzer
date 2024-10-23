@@ -176,6 +176,7 @@ def analyse(path,
     have_slo = True
 
     # OCT analysis is the priority, so skip SLO analysis if unexpected error occurs
+    slo_missing_fovea = False
     try:
         fname_output_path = os.path.join(save_path,f'{fname}_output.xlsx')
         if have_slo and (analyse_slo_flag or scan_location == 'peripapillary'):
@@ -230,6 +231,9 @@ def analyse(path,
             slo_meta_df, slo_measure_dfs, _, slo_segmentations, slo_logging_list = slo_analysis_output
             logging_list.extend(slo_logging_list)
             slo_avimout = slo_segmentations[-1]
+
+            slo_missing_fovea = slo_meta_df.slo_missing_fovea.values[0].astype(bool)
+            fovea_at_slo = slo_meta_df[["slo_fovea_x", "slo_fovea_y"]].values[0].astype(int)
             
         else:
             slo_analysis_output = None
@@ -318,7 +322,6 @@ def analyse(path,
     od_overlap = None
     od_warning = None
     od_centre = None
-    missing_fovea = False
     if scan_location == "peripapillary":
         msg = f"\nSegmented B-scan visualisation saved out.\n"
         logging_list.append(msg)
@@ -357,11 +360,9 @@ All measurements are made with respect to the image axis (vertical) as this is a
             print(msg)
 
         # Extract metadata from SLO for disc-centred inputs to align peripapillary grid
-        if have_slo:
-            fovea_at_slo = slo_meta_df[["slo_fovea_x", "slo_fovea_y"]].values[0].astype(int)
-            missing_fovea = slo_meta_df.missing_fovea.values[0].astype(bool)
+        if have_slo:    
             od_radius = slo_meta_df.optic_disc_radius_px.values[0].astype(int)
-    
+
             # Determine A-scan along B-scan which is centred between the fovea and optic-disc.
             # We call this the temporal midpoint
             output = utils.align_peripapillary_data(metadata, fovea_at_slo, slo_acq, slo_avimout, 
@@ -516,12 +517,9 @@ All measurements are made with respect to the image axis (vertical) as this is a
         seg_df = {f"{scan_type}": seg_df}
 
     elif scan_type != "Ppole":
-        msg = f"\nSegmented B-scan visualisation saved out.\n"
-        logging_list.append(msg)
-        if verbose:
-            print(msg)
+
+        # Extract region mask and remove any vessel segmented pixels from outside segmented choroid
         if analyse_choroid:
-            # Extract region mask and remove any vessel segmented pixels from outside segmented choroid
             traces = utils.get_trace(rvfmasks[0][0], 0.5, align=True)
             region_mask = utils.rebuild_mask(traces, img_shape=(M, N))
             vessel_mask = region_mask.astype(float) * rvfmasks[0][1].astype(float)
@@ -532,31 +530,9 @@ All measurements are made with respect to the image axis (vertical) as this is a
             layer_keys.append("CHORupper")
             layer_keys.append("CHORlower")
 
-        layer_keys_copied = layer_keys.copy()
-        if save_ind_segmentations:
-            fig, (ax0,ax) = plt.subplots(1,2,figsize=(12,6))
-            ax0.imshow(bscan_data[0], cmap='gray')
-            ax.imshow(bscan_data[0], cmap="gray")
-            for key, tr in layer_pairwise.items():
-                for (k, t) in zip(key.split("_"), tr[0]):
-                    if k in layer_keys_copied:
-                        ax.plot(t[:,0],t[:,1])
-                        layer_keys_copied.remove(k)
-            if analyse_choroid:
-                ax.imshow(vessel_cmap, alpha=0.5)
-            if scan_type != "AV-line":
-                ax.scatter(foveas[0][0], foveas[0][1], s=50, marker="X", edgecolor=(0,0,0), color="r", linewidth=1)
-            ax.set_axis_off()
-            ax0.set_axis_off()
-            fig.tight_layout(pad = 0)
-            fig.savefig(os.path.join(save_path, f"{fname}_octseg.png"), bbox_inches="tight")
-            if collate_segmentations:
-                fig.savefig(os.path.join(segmentation_directory, f"{fname}.png"), bbox_inches="tight")
-            plt.close()
-
         # Analysis isn't entirely supported yet for AV-line scans, so just save out
         # Bscan, SLO and the segmented, do not measure.
-        if scan_type != "AV-line":
+        if scan_type != "AV-line" and foveas[0].sum() != 0:
 
             # For a single B-scan, measure thickness and area of all layers, and CVI for choroid
             msg = f"""Measuring average and subfoveal thickness, area, and vessel area/vascular index (for choroid only).
@@ -567,23 +543,42 @@ All choroidal measurements are made {chor_measure_type}."""
             if verbose:
                 print(msg)
             measure_dict = {}
+            areas_to_overlay = ['ILM_BM']
+            overlay_areas = []
+            overlay_thicks = []
             for key, tr in layer_pairwise.items():
                 vess_mask = None
                 meas_type = ret_measure_type
                 if "CHOR" in key:
+                    areas_to_overlay.append('CHORupper_CHORlower')
                     vess_mask = vessel_mask
                     meas_type = chor_linescan_measure_type
 
-                output = bscan_measurements.compute_measurement(tr[0], vess_mask=vess_mask, fovea=foveas[0], scale=bscan_scale, 
+                msg = f"    Measuring layer: {key}"
+                logging_list.append(msg)
+                if verbose:
+                    print(msg)
+                output, plotinfo, bscan_log = bscan_measurements.compute_measurement(tr[0], vess_mask=vess_mask, fovea=foveas[0], scale=bscan_scale, 
                                                                 macula_rum=macula_rum, N_measures=N_measures, N_avgs=N_avgs,
                                                                 measure_type=meas_type, img_shape=(M,N),
-                                                                verbose=True, force_measurement=True)
+                                                                verbose=True, force_measurement=False, plottable=True, logging_list=[])
+                logging_list.extend(bscan_log)
                 measure_dict[key] = {"subfoveal_thickness_[um]":output[0], "thickness_[um]":output[1], "area_[mm2]":output[2]}
+                
+                # Explicitly add vessel area and CVI to measure_dict for choroid
                 if "CHOR" in key:
-                    measure_dict[key]["vascular_index"] = output[-2]
-                    measure_dict[key]["vessel_area_[mm2]"] = output[-1]
-        else:
-            msg = f"""Scan location intersects arteries/veins and is not fovea-centred.
+                    measure_dict[key]["vascular_index"] = output[3]
+                    measure_dict[key]["vessel_area_[mm2]"] = output[4]
+                
+                # Add ROI areas to overlay in OCT B-scan segmentation visualisation
+                # Only if measurements were able to be computed.
+                if key in areas_to_overlay:
+                    if plotinfo is not None:
+                        overlay_areas.append(plotinfo[1])
+                        overlay_thicks.append(plotinfo[0][[0,-1]][:,0])
+
+        elif scan_type == "AV-line":
+            msg = f"""Scan location intersects arteries/veins and is not fovea-centred OR acquisition line is not horizontal/vertical.
 Measurements of thickness, area, etc. are not supported (yet).
 Instead, B-scan and SLO images are automatically saved out."""
             logging_list.append(msg)
@@ -591,18 +586,101 @@ Instead, B-scan and SLO images are automatically saved out."""
                 print(msg)
             measure_dict = {}
             save_ind_images = 1
-        
-        # Measurement metadata
+
+        elif foveas[0].sum() == 0:
+            msg = """Warning: The fovea has not been detected on the OCT B-scan.
+This could be because the fovea is not present in the scan, or because of a segmentation error.
+Skipping file and outputting -1s for measurements of each layer."""
+            logging_list.append(msg)
+            if verbose:
+                print(msg)
+            overlay_areas = []
+            measure_dict = {}
+            for key, tr in layer_pairwise.items():
+                measure_dict[key] = {"subfoveal_thickness_[um]":-1, "thickness_[um]":-1, "area_[mm2]":-1}
+                # Explicitly add vessel area and CVI to measure_dict for choroid
+                if "CHOR" in key:
+                    measure_dict[key]["vascular_index"] = -1
+                    measure_dict[key]["vessel_area_[mm2]"] = -1
+
+         # Save out B-scan segmentations
+        if save_ind_segmentations:
+            layer_keys_copied = layer_keys.copy()
+            fig, (ax0,ax) = plt.subplots(1,2,figsize=(12,6))
+            ax0.imshow(bscan_data[0], cmap='gray')
+            ax.imshow(bscan_data[0], cmap="gray")
+            for key, tr in layer_pairwise.items():
+                for (k, t) in zip(key.split("_"), tr[0]):
+                    if k in layer_keys_copied:
+                        ax.plot(t[:,0],t[:,1], label='_ignore', zorder=2)
+                        layer_keys_copied.remove(k)
+            if analyse_choroid:
+                ax.imshow(vessel_cmap, alpha=0.5, zorder=2)
+            if scan_type != "AV-line":
+                ax.scatter(foveas[0][0], foveas[0][1], s=200, marker="X", edgecolor=(0,0,0), 
+                        color="r", linewidth=1, zorder=3, label='Detected fovea position')
+                if len(overlay_areas) > 0:
+                    for roi_map in overlay_areas:
+                        ax.imshow(utils.generate_imgmask(roi_map, None, 1), alpha=0.25, zorder=0)
+                    for thicks in overlay_thicks:
+                        for line_pts in thicks:
+                            ax.plot(line_pts[:,0], line_pts[:,1], color='g', linestyle='--', linewidth=3, zorder=1, label='_ignore')
+                    ax.fill_between([-2,-1], [-2,-1], color='g', alpha=0.25, label=f'Region of interest\n({2*macula_rum} microns fovea-centred)')
+            ax.axis([0, N-1, M-1, 0])
+            ax.legend(fontsize=16)
+            ax.set_axis_off()
+            ax0.set_axis_off()
+            fig.tight_layout(pad = 0)
+            fig.savefig(os.path.join(save_path, f"{fname}_octseg.png"), bbox_inches="tight")
+            if collate_segmentations:
+                fig.savefig(os.path.join(segmentation_directory, f"{fname}.png"), bbox_inches="tight")
+            plt.close() 
+            msg = f"\nSegmented B-scan visualisation saved out.\n"
+            logging_list.append(msg)
+            if verbose:
+                print(msg)
+
+        # H-line/V-line Measurement metadata
         horizontal = [False, True][scan_type=="H-line"]
         if scan_type in ["H-line", "V-line"]:
+
+            # B-scan OCT fovea metadata
             metadata["bscan_fovea_x"] = foveas[0][0]
             metadata["bscan_fovea_y"] = foveas[0][1]
-            acq_angle, fovea_at_slo = map_module.detect_angle(slo_at_fovea, fovea=foveas[0], horizontal=horizontal, inpt=".vol")
-            metadata["slo_fovea_x"] = fovea_at_slo[0]
-            metadata["slo_fovea_y"] = fovea_at_slo[1]
-            metadata["acquisition_angle_degrees"] = acq_angle
+            if foveas[0].sum() == 0:
+                metadata["bscan_missing_fovea"] = True
+            else:
+                metadata["bscan_missing_fovea"] = False
+
+            # SLO metadata on fovea
+            if have_slo and not analyse_slo_flag:
+                acq_angle, fovea_at_slo = map_module.detect_angle(slo_at_fovea, fovea=foveas[0], horizontal=horizontal, inpt=".vol")
+                metadata["slo_fovea_x"] = fovea_at_slo[0]
+                metadata["slo_fovea_y"] = fovea_at_slo[1]
+                if metadata["bscan_missing_fovea"]:
+                    metadata["slo_missing_fovea"] = True
+                metadata["acquisition_angle_degrees"] = acq_angle
+            elif have_slo and analyse_slo_flag and slo_analysis_output is not None:
+                metadata["slo_fovea_x"] = fovea_at_slo[0]
+                metadata["slo_fovea_y"] = fovea_at_slo[1]
+                metadata["slo_missing_fovea"] = slo_missing_fovea
+                metadata["acquisition_angle_degrees"] = 0 if horizontal else 90
+
+            # ROI metadata
             metadata["linescan_area_ROI_microns"] = macula_rum
             metadata["choroid_measure_type"] = chor_measure_type
+            
+            # Missing measurements 
+            metadata["missing_retinal_oct_linescan_measurements"] = False
+            metadata["missing_choroid_oct_linescan_measurements"] = False
+            for key in pairwise_keys:
+                if measure_dict[key]["subfoveal_thickness_[um]"] == -1:
+                    metadata["missing_retinal_oct_linescan_measurements"] = True
+                    break 
+            if "CHORupper_CHORlower" in list(measure_dict.keys()):
+                if measure_dict["CHORupper_CHORlower"]["subfoveal_thickness_[um]"] == -1:
+                    metadata["missing_choroid_oct_linescan_measurements"] = True
+
         else:
             metadata["bscan_fovea"] = None
             metadata["slo_fovea"] = None
@@ -689,16 +767,11 @@ NOTE:Subregion volumes will not be computed for CVI map."""
         if not os.path.exists(map_save_path):
             os.mkdir(map_save_path)
 
-        # return metadata, ppole_segs, fovea, vmasks, ppole_keys
-
         # Loop over segmented layers and generate user-specified maps
         for key, seg in zip(ppole_keys, ppole_segs):
 
             # Compute maps
-            msg = f"    {key}_map"
-            logging_list.append(msg)
-            if verbose:
-                print(msg)
+            msg = f"    {key} thickness map"
             ves_chorsegs = None
             measure_type = "vertical"
             if "choroid" in key:
@@ -706,6 +779,11 @@ NOTE:Subregion volumes will not be computed for CVI map."""
                 if key == "choroid_vessel":
                     ves_chorsegs = vmasks
                     measure_type = chor_ppole_measure_type
+                    msg = f"    choroid vessel and vascular index maps"                    
+
+            logging_list.append(msg)
+            if verbose:
+                print(msg)
             map_output = map_module.construct_map(slo, slo_at_fovea, seg,
                                             fovea, fovea_slice_num, 
                                             bscan_scale, scaleZ,
@@ -767,18 +845,15 @@ NOTE:Subregion volumes will not be computed for CVI map."""
                     ctmap_args[key] = [macular_map, fovea_at_slo, 
                                       scaleX, eye, angle, dtype,
                                       grid_output, gridvol_output]
-            # break
                 
         # Measurement metadata
         metadata["bscan_fovea_x"] = fovea[0]
         metadata["bscan_fovea_y"] = fovea[1]
         metadata["slo_fovea_x"] = fovea_at_slo[0]
         metadata["slo_fovea_y"] = fovea_at_slo[1]
+        metadata["slo_missing_fovea"] = slo_missing_fovea
         metadata["acquisition_angle_degrees"] = angle
         metadata["choroid_measure_type"] = chor_measure_type
-
-        # Exit analysis for debugging for ppole scan
-        # return metadata, ppole_segs, fovea, vmasks, ppole_keys
 
         # Plot core maps into single plot and save out
         if collate_segmentations and map_flags[0]==1:
@@ -787,19 +862,109 @@ NOTE:Subregion volumes will not be computed for CVI map."""
             fig.savefig(os.path.join(segmentation_directory, fname+'.png'), bbox_inches="tight", transparent=False)
         plt.close()
 
-        # Macular measurements fixed, so not added to metadata
-        # if "square" in measure_dict.keys():
-        #     measure_dict["square_grid_size"] = square_kwds["N_grid"]
-        #     measure_dict["etdrs_grid_width"] = square_kwds["grid_size"]
-        # if "etdrs" in measure_dict.keys():
-        #     metadata["etdrs_distance"] = ",".join(np.array(etdrs_kwds["etdrs_microns"]).astype(str))
-        
         # Add choroid Ppole traces to retinal segmentations
         if analyse_choroid:
             rtraces = [utils.get_trace(rvf_i[0],0.5,False) for rvf_i in rvfmasks]
             layer_pairwise["CHORupper_CHORlower"] = rtraces
             layer_keys.append("CHORupper")
             layer_keys.append("CHORlower")
+
+        # Save out volumetric OCT B-scan segmentations
+        if save_ind_segmentations:
+
+            # Save out fovea-centred B-scan segmentation visualisation
+            fovea_vmask = vmasks[fovea_slice_num]
+            fovea_vcmap = np.concatenate([fovea_vmask[...,np.newaxis]] 
+                    + 2*[np.zeros_like(fovea_vmask)[...,np.newaxis]] 
+                    + [fovea_vmask[...,np.newaxis] > 0.01], axis=-1)
+            
+            # Plot segmentations over fovea-centred B-scan
+            layer_keys_copied = layer_keys.copy()
+            fig, (ax0,ax) = plt.subplots(1,2,figsize=(12,6))
+            ax0.imshow(bscan_data[fovea_slice_num], cmap='gray')
+            ax.imshow(bscan_data[fovea_slice_num], cmap="gray")
+            for key, tr in layer_pairwise.items():
+                for (k, t) in zip(key.split("_"), tr[fovea_slice_num]):
+                    if k in layer_keys_copied:
+                        ax.plot(t[:,0],t[:,1], label='_ignore', zorder=2)
+                        layer_keys_copied.remove(k)
+            ax.scatter(fovea[0], fovea[1], s=200, marker="X", edgecolor=(0,0,0), 
+                        color="r", linewidth=1, zorder=3, label='Detected fovea position')
+            if analyse_choroid:
+                ax.imshow(fovea_vcmap, alpha=0.5, zorder=2)
+            ax.axis([0, N-1, M-1, 0])
+            ax.legend(fontsize=16)
+            ax.set_axis_off()
+            ax0.set_axis_off()
+            fig.tight_layout(pad = 0)
+            fig.savefig(os.path.join(save_path, f"{fname}_fovea_octseg.png"), bbox_inches="tight")
+            if collate_segmentations:
+                fig.savefig(os.path.join(segmentation_directory, f"{fname}.png"), bbox_inches="tight")
+            plt.close()
+
+            # Stitch all B-scans to create "contact sheet" for checking
+            # Organise stacking of B-scans into rows & columns
+            if N_scans == 61:
+                reshape_idx = (10,6)
+            elif N_scans == 31:
+                reshape_idx = (5,6)
+            elif N_scans == 45:
+                reshape_idx = (11,4)
+
+            # Organise B-scan data and choroid vessel maps
+            bscan_list = list(bscan_data.copy())
+            bscan_list.pop(fovea_slice_num)
+            bscan_arr = np.array(bscan_list)
+            bscan_arr = bscan_arr.reshape(*reshape_idx,M,N)
+            bscan_hstacks = []
+
+            if analyse_choroid:
+                vmasks_list = list(vmasks.copy())
+                vmasks_list.pop(fovea_slice_num)
+                vmasks_arr = np.asarray(vmasks_list)
+                vmasks_arr = vmasks_arr.reshape(*reshape_idx,M,N)
+                vmask_hstacks = []
+
+            # Stack B-scans and vessel maps horizontally
+            for i in range(reshape_idx[0]):
+                bscan_hstacks.append(np.hstack(bscan_arr[i]))
+                if analyse_choroid:
+                    vmask_hstacks.append(np.hstack(vmasks_arr[i]))
+
+            # Stack B-scans and vessel maps vertically
+            bscan_stacked = np.vstack(bscan_hstacks)
+            if analyse_choroid:
+                vmask_stacked = np.vstack(vmask_hstacks)
+                all_vcmap = np.concatenate([vmask_stacked[...,np.newaxis]] 
+                            + 2*[np.zeros_like(vmask_stacked)[...,np.newaxis]] 
+                            + [vmask_stacked[...,np.newaxis] > 0.01], axis=-1)
+
+            # figure to be saved out at same dimensions as stacked array
+            h,w = bscan_stacked.shape
+            np.random.seed(0)
+            COLORS = {key:np.random.randint(255, size=3)/255 for key in layer_keys}
+            fig, ax = plt.subplots(1,1,figsize=(w/1000, h/1000), dpi=100)
+            ax.set_axis_off()
+            ax.imshow(bscan_stacked, cmap='gray')
+
+            # add all traces
+            for (i, j) in np.ndindex(reshape_idx):
+                layer_keys_copied = layer_keys.copy()
+                for key, traces in layer_pairwise.items():
+                    tr = traces.copy()
+                    tr.pop(fovea_slice_num)
+                    for (k, t) in zip(key.split("_"), tr[reshape_idx[1]*i + j]):
+                        if k in layer_keys_copied:
+                            c = COLORS[k]
+                            ax.plot(t[:,0]+j*N,t[:,1]+i*M, label='_ignore', color=c, zorder=2, linewidth=0.175)
+                            layer_keys_copied.remove(k)
+
+            # add vessel maps  
+            if analyse_choroid:
+                ax.imshow(all_vcmap, alpha=0.5)
+            fig.tight_layout(pad=0)
+            fig.savefig(os.path.join(save_path, f"{fname}_volume_octseg.png"), dpi=1000)
+            plt.close()
 
         # Organise traces to be saved out - overcomplicated as I am working
         # with pairwise segmentation traces, not individual ones. 
@@ -842,9 +1007,6 @@ NOTE:Subregion volumes will not be computed for CVI map."""
                 np.save(os.path.join(map_save_path,f"{fname}_{key}_{unit}_map.npy"), macular_map)
 
     # Add any disc-centred metadata
-    metadata["missing_fovea"] = missing_fovea
-    metadata["slo_fovea_x"] = fovea_at_slo[0]
-    metadata["slo_fovea_y"] = fovea_at_slo[1]
     if od_centre is not None:
         metadata["optic_disc_overlap_index_%"] = od_overlap
         metadata['optic_disc_overlap_warning'] = od_warning
@@ -859,9 +1021,6 @@ NOTE:Subregion volumes will not be computed for CVI map."""
     metadata["choroid_vessel_density_units"] = "micron2"
     metadata["area_units"] = "mm2"
     metadata["volume_units"] = "mm3"
-
-    # Exit analysis for debugging for line scan
-    # return metadata, layer_pairwise, fovea, vessel_mask, layer_keys
 
     # If saving out bscan and slo image. If ppole, only saying out bscan at fovea
     # This is automatically done for AV-line scans.
@@ -881,9 +1040,9 @@ NOTE:Subregion volumes will not be computed for CVI map."""
 
     # Save out raw probability vessel segmentation maps if analysing choroid and analysing peripapillary scan
     if scan_location != 'peripapillary':
-        vmasks = np.array([(mask[0]>0.5)*mask[1] for mask in rvfmasks]).reshape(bscan_data.shape)
         if save_ind_segmentations and analyse_choroid:
             if N_scans == 1 and scan_type != "Ppole":
+                vmasks = np.array([(mask[0]>0.5)*mask[1] for mask in rvfmasks]).reshape(bscan_data.shape)
                 cv2.imwrite(os.path.join(save_path, f"{fname}_chorvessel_mask.png"), (255*vessel_mask).astype(int))
             else:
                 np.save(os.path.join(map_save_path, f"{fname}_chorvessel_maps.npy"), vmasks)

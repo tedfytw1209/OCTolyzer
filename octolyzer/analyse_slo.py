@@ -315,7 +315,7 @@ def analyse(path,
             print(msg)  
     metadata["slo_fovea_x"] = fovea[0]
     metadata["slo_fovea_y"] = fovea[1]
-    metadata["missing_fovea"] = fovea_missing
+    metadata["slo_missing_fovea"] = fovea_missing
 
     # store optic disc centre,
     # The latter is only stored for for an optic disc-centred scan

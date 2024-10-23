@@ -17,10 +17,11 @@ def compute_measurement(reg_mask,
                        N_avgs = 0,
                        offset=15,
                        measure_type: str = "perpendicular",
-                       img_shape = (768,768),
-                       plottable=False,
-                       force_measurement=False,
-                       verbose=0):
+                       img_shape: tuple = (768,768),
+                       plottable: bool = False,
+                       force_measurement: bool = False,
+                       verbose: [int, bool]=0,
+                       logging_list: list = []):
     """
     Compute measurements of interest, that is thickness and area using the reg_mask and 
     CVI (optional) using the vess_mask.
@@ -47,6 +48,7 @@ def compute_measurement(reg_mask,
     force_measurement : If segmentation isn't long enough for macula_rum-N_avgs-offset selection, this forces
         a measurement to be made by under-measuring. Default: False.
     verbose : Log to user regarding segmentation length.
+    logging_list : List of log information to save out.
 
     Outputs:
     -------------------------
@@ -106,22 +108,36 @@ def compute_measurement(reg_mask,
     delta_i = [i for i in range((N_measures - 1) // 2 + 1)]
     micron_measures = np.array([i * delta_micron for i in delta_i])
 
-    # Locate coordinates along the upper boundary at 
-    # equal spaces away from foveal pit until macula_rum
-    curve_indexes = [curve_location(top_chor, distance=d, ref_idx=ref_idx, scale=scale, verbose=verbose) for d in micron_measures]
+    # Locate coordinates along the upper boundary at equal spaces away from foveal pit until macula_rum
+    curve_indexes = [curve_location(top_chor, distance=d, ref_idx=ref_idx, scale=scale, verbose=False) for d in micron_measures]
 
-    # To catch if we cannot make measurement macula_rum either side of reference point, return 0s.
-    if None in curve_indexes:
-        if vess_mask is None:
-            if measure_all:
-                return 0, 0, 0
-            else:
-                return np.array(N_measures*[0], dtype=np.int64), 0
+    # To catch if we cannot make measurement macula_rum either side of reference point, return -1s.
+    if (None, np.nan) in curve_indexes or (np.nan, None) in curve_indexes:
+        
+        error_left, error_right = None,None
+        if (None, np.nan) in curve_indexes:
+            error_left = "left"
+            error_side = 'left'
+        if (np.nan, None) in curve_indexes:
+            error_right = 'right'
+            error_side = 'right'
+        if error_left is not None and error_right is not None:
+            error_side = f"{error_left} and {error_right}"
+        msg = f"""        Segmentation not long enough for {macula_rum}um {error_side} of fovea.
+        Extend segmentation or reduce region of interest to prevent this from happening.
+        Returning -1s."""
+        logging_list.append(msg)
+        if verbose:
+            print(msg)
+
+        # Empty outputs depending on input
+        plotinfo = None
+        avg_thick = [np.array(N_measures*[-1], dtype=np.int64), -1][measure_all]
+        measurements = [(-1, avg_thick, -1, -1, -1), (-1, avg_thick, -1)][vess_mask is None]
+        if plottable:
+            return measurements, plotinfo, logging_list
         else:
-            if measure_all:
-                return 0, 0, 0, 0, 0
-            else:
-                return np.array(N_measures*[0], dtype=np.int64), 0, 0, 0
+            return measurements, logging_list
 
     # If we can, make sure that the curve_indexes at each end of the choroid are within offset+N_avgs//2 of the 
     # last index of each end of  the trace. Only relevant if measuring perpendicularly.
@@ -143,20 +159,37 @@ def compute_measurement(reg_mask,
         
         # Logging to user about consequence of forcing measurement if segmentation isn#t long enough
         if st_flag + en_flag > 0 and not force_measurement:
-            if verbose==1:
-                logging.warning(f"""Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
-                    Extend segmentation or reduce macula_rum/N_avgs/offset value to prevent this from happening.
-                    Returning 0s.""")
-            return np.array(N_measures*[0], dtype=np.int64), 0, 0
-        elif force_measurement and st_flag==1 and verbose==1:
-            logging.warning(f"""Segmentation not segmented long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
-                Reducing left-endpoint reference point by {-st_diff} pixels.
-                Extend segmentation or reduce macula_rum/N_avgs/offset to prevent under-measurement.""")
-        elif force_measurement and en_flag==1 and verbose==1:
-            logging.warning(f"""Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
-                Reducing right-endpoint reference point by {en_diff} pixels.
-                Extend segmentation or reduce macula_rum/N_avgs/offset to prevent under-measurement.""")
-        
+            msg = f"""        Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
+        Extend segmentation or reduce region of interest to prevent this from happening.
+        Returning -1s."""
+            logging_list.append(msg)
+            if verbose:
+                print(msg)
+            
+            # Empty outputs depending on input
+            plotinfo = None
+            avg_thick = [np.array(N_measures*[-1], dtype=np.int64), -1][measure_all]
+            measurements = [(-1, avg_thick, -1, -1, -1), (-1, avg_thick, -1)][vess_mask is None]
+            if plottable:
+                return measurements, plotinfo, logging_list
+            else:
+                return measurements, logging_list
+
+        elif force_measurement and st_flag==1:
+            msg = f"""        Segmentation not segmented long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
+        Reducing left-endpoint reference point by {-st_diff} pixels.
+        Extend segmentation or reduce region of interest to prevent under-measurement."""
+            logging_list.append(msg)
+            if verbose:
+                print(msg)
+        elif force_measurement and en_flag==1:
+            msg = f"""        Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
+        Reducing right-endpoint reference point by {en_diff} pixels.
+        Extend segmentation or reduce region of interest to prevent under-measurement."""
+            logging_list.append(msg)
+            if verbose:
+                print(msg)
+
     # Collect reference points along upper boundary - N_avgs allows us to make more robust thickness measurements by taking average value of advacent positions
     rpechor_pts = np.array([top_chor[[idx + np.arange(-N_avgs//2, N_avgs//2+1)]] for loc in curve_indexes for idx in loc]).reshape(-1,2)[1:]
     rpechor_pts = rpechor_pts[rpechor_pts[:,0].argsort()]
@@ -178,29 +211,38 @@ def compute_measurement(reg_mask,
                                        
     # Compute choroid thickness at each reference point.
     delta_xy = np.abs(np.diff(boundary_pts, axis=boundary_pts.ndim-2)) * np.array([micron_pixel_x, micron_pixel_y])
-    choroid_thickness = np.rint(np.nanmean(np.sqrt(np.square(delta_xy).sum(axis=-1)), axis=1)).astype(int)[:,0]
 
     # If measuring at every point across ROI, return average and subfoveal (averaging across 5 adjacent measurements)
     if measure_all:
-        subf_thick = int(choroid_thickness[N_measures//2-3:N_measures//2+2].mean())
-        avg_thick = int(choroid_thickness.mean())
+        choroid_thickness = np.sqrt(np.square(delta_xy).sum(axis=-1))[:,0]
+        subf_thick = int(np.nanmean(choroid_thickness[N_measures//2-3:N_measures//2+2]))
+        avg_thick = int(np.nanmean(choroid_thickness))
         measurements.append(subf_thick)
         measurements.append(avg_thick)
 
     # Otherwise, return all thickness values measured at all N_measures reference points
     else:
+        choroid_thickness = np.rint(np.nanmean(np.sqrt(np.square(delta_xy).sum(axis=-1)), axis=1)).astype(int)[:,0]
         measurements.append(choroid_thickness)
     
     # Compute choroid area                               
     area_bnds_arr = np.swapaxes(boundary_pts[[0,-1], N_avgs//2], 0, 1).reshape(-1,2)
     if np.any(np.isnan(area_bnds_arr)):
-        logging.warning(f"""Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
-            Extend segmentation or reduce macula_rum/N_avgs/offset to prevent under-measurement.
-            Returning 0s.""")
-        if vess_mask is None:
-            return np.array(N_measures*[0], dtype=np.int64), 0
+        msg = f"""        Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
+        Extend segmentation or reduce region of interest to prevent under-measurement.
+        Returning -1s."""
+        logging_list.append(msg)
+        if verbose:
+            print(msg)
+
+        # Empty outputs depending on input
+        plotinfo = None
+        avg_thick = [np.array(N_measures*[-1], dtype=np.int64), -1][measure_all]
+        measurements = [(-1, avg_thick, -1, -1, -1), (-1, avg_thick, -1)][vess_mask is None]
+        if plottable:
+            return measurements, plotinfo, logging_list
         else:
-             return np.array(N_measures*[0], dtype=np.int64), 0, 0, 0
+            return measurements, logging_list
 
     # Compute choroidal area
     choroid_area, plot_output = compute_area_enclosed(traces, area_bnds_arr.astype(int), scale=scale, plot=True)
@@ -236,11 +278,11 @@ def compute_measurement(reg_mask,
         chor_pixels = chor_pixels.astype(int)
         ca_mask[chor_pixels[:,1], chor_pixels[:,0]] = 1
         if vess_mask is not None:
-            return measurements, (boundary_pts, ca_mask, vess_mask)
+            return measurements, (boundary_pts, ca_mask, vess_mask), logging_list
         else:
-            return measurements, (boundary_pts, ca_mask)
+            return measurements, (boundary_pts, ca_mask), logging_list
     else:
-        return measurements
+        return measurements, logging_list
 
 
 

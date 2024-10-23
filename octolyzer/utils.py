@@ -1081,10 +1081,11 @@ meta_cols = {'Filename':'Filename of the SLO+OCT file analyse.',
              
              'bscan_fovea_x': 'Horizontal pixel position of the fovea on the OCT B-scan (if visible in one of the scans, only relevant for macular OCT).',
              'bscan_fovea_y': 'Vertical pixel position of the fovea on the OCT B-scan (if visible in one of the scans, only relevant for macular OCT).',
+             'bscan_missing_fovea':'Boolean value flagging whether fovea is missing from OCT data (either due to acquisition or segmentation failure).',
              'slo_fovea_x': 'Horizontal pixel position of the fovea on the SLO image, if visible.',
              'slo_fovea_y': 'Vertical pixel position of the fovea on the SLO image, if visible.',
              'acquisition_angle_degrees': 'Angle of elevation from horizontal image axis of acquisition for Posterior pole scans.',
-             'slo_missing_fovea':'Boolean value flagging whether fovea is missing from data (either due to acquisition or segmentation failure).',
+             'slo_missing_fovea':'Boolean value flagging whether fovea is missing from SLO data (either due to acquisition or segmentation failure).',
              
              'optic_disc_overlap_index_%':'% of the optic disc diameter, defining how off-centre a peripapillary image acquisition is from the optic disc centre.',
              'optic_disc_overlap_warning': 'Boolean value, flagging if the overlap index is greater than 15%, the empirical cut-off to warn end-user of an off-centre scan.',
@@ -1099,7 +1100,9 @@ meta_cols = {'Filename':'Filename of the SLO+OCT file analyse.',
              'volume_units':'Units of measurements for volume, always in mm3 (cubic millimetres).',
              'linescan_area_ROI_microns':'For single-line, macular OCT, this is the micron distance defining the fovea-centred region of interest.',
              'choroid_measure_type':'Whether the choroid is measured column-wise (per A-scan) or perpendicularly. Always per A-scan for peripapillary OCT.',
-             
+             'missing_retinal_oct_linescan_measurements':'Whether OCT retinal measurements could not be computed for H-/V-linescans due to too large an ROI or too short a segmentation.',
+             'missing_choroid_oct_linescan_measurements':'Whether OCT choroidal measurements could not be computed for H-/V-linescans due to too large an ROI or too short a segmentation.',
+
              'acquisition_radius_px': 'Pixel radius of the acquisition line around the optic disc for peripapillary OCT.',
              'acquisition_radius_mm': 'Millimetre radius of the acquisition line around the optic disc for peripapillary OCT.',
              'acquisition_optic_disc_center_x': 'Horizontal pixel position of the optic disc centre, as selected by the user during peripapillary OCT acquisition.',

@@ -279,6 +279,9 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
     all_oct_sq_ppole_df = all_oct_sq_ppole_df.reset_index(drop=True)
     all_oct_peri_df = all_oct_peri_df.reset_index(drop=True)
     all_oct_macula_df = all_oct_macula_df.reset_index(drop=True)
+
+    # Remove any rows in all_oct_macula_df which are just -1s, i.e. fovea was not detected
+    all_oct_macula_df = all_oct_macula_df[~(all_oct_macula_df.iloc[:, 1:]==-1).all(axis=1)]
   
     # save out global metadata and measurements
     with pd.ExcelWriter(os.path.join(save_directory, f'analysis_output.xlsx')) as writer:
