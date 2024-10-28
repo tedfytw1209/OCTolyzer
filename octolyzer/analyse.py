@@ -872,6 +872,11 @@ NOTE:Subregion volumes will not be computed for CVI map."""
         # Save out volumetric OCT B-scan segmentations
         if save_ind_segmentations:
 
+            msg = f'Saving out key visualisations of segmentations overlaid onto posterior pole B-scans.'
+            logging_list.append(msg)
+            if verbose:
+                print(msg)
+
             # Save out fovea-centred B-scan segmentation visualisation
             fovea_vmask = vmasks[fovea_slice_num]
             fovea_vcmap = np.concatenate([fovea_vmask[...,np.newaxis]] 
@@ -898,73 +903,30 @@ NOTE:Subregion volumes will not be computed for CVI map."""
             ax0.set_axis_off()
             fig.tight_layout(pad = 0)
             fig.savefig(os.path.join(save_path, f"{fname}_fovea_octseg.png"), bbox_inches="tight")
-            if collate_segmentations:
-                fig.savefig(os.path.join(segmentation_directory, f"{fname}.png"), bbox_inches="tight")
             plt.close()
 
             # Stitch all B-scans to create "contact sheet" for checking
             # Organise stacking of B-scans into rows & columns
             if N_scans == 61:
                 reshape_idx = (10,6)
+                utils.plot_composite_volume(bscan_data, vmasks, fovea_slice_num, 
+                                            layer_pairwise, reshape_idx, 
+                                            analyse_choroid, fname, save_path)
             elif N_scans == 31:
                 reshape_idx = (5,6)
+                utils.plot_composite_volume(bscan_data, vmasks, fovea_slice_num, 
+                                            layer_pairwise, reshape_idx, 
+                                            analyse_choroid, fname, save_path)
             elif N_scans == 45:
                 reshape_idx = (11,4)
-
-            # Organise B-scan data and choroid vessel maps
-            bscan_list = list(bscan_data.copy())
-            bscan_list.pop(fovea_slice_num)
-            bscan_arr = np.array(bscan_list)
-            bscan_arr = bscan_arr.reshape(*reshape_idx,M,N)
-            bscan_hstacks = []
-
-            if analyse_choroid:
-                vmasks_list = list(vmasks.copy())
-                vmasks_list.pop(fovea_slice_num)
-                vmasks_arr = np.asarray(vmasks_list)
-                vmasks_arr = vmasks_arr.reshape(*reshape_idx,M,N)
-                vmask_hstacks = []
-
-            # Stack B-scans and vessel maps horizontally
-            for i in range(reshape_idx[0]):
-                bscan_hstacks.append(np.hstack(bscan_arr[i]))
-                if analyse_choroid:
-                    vmask_hstacks.append(np.hstack(vmasks_arr[i]))
-
-            # Stack B-scans and vessel maps vertically
-            bscan_stacked = np.vstack(bscan_hstacks)
-            if analyse_choroid:
-                vmask_stacked = np.vstack(vmask_hstacks)
-                all_vcmap = np.concatenate([vmask_stacked[...,np.newaxis]] 
-                            + 2*[np.zeros_like(vmask_stacked)[...,np.newaxis]] 
-                            + [vmask_stacked[...,np.newaxis] > 0.01], axis=-1)
-
-            # figure to be saved out at same dimensions as stacked array
-            h,w = bscan_stacked.shape
-            np.random.seed(0)
-            COLORS = {key:np.random.randint(255, size=3)/255 for key in layer_keys}
-            fig, ax = plt.subplots(1,1,figsize=(w/1000, h/1000), dpi=100)
-            ax.set_axis_off()
-            ax.imshow(bscan_stacked, cmap='gray')
-
-            # add all traces
-            for (i, j) in np.ndindex(reshape_idx):
-                layer_keys_copied = layer_keys.copy()
-                for key, traces in layer_pairwise.items():
-                    tr = traces.copy()
-                    tr.pop(fovea_slice_num)
-                    for (k, t) in zip(key.split("_"), tr[reshape_idx[1]*i + j]):
-                        if k in layer_keys_copied:
-                            c = COLORS[k]
-                            ax.plot(t[:,0]+j*N,t[:,1]+i*M, label='_ignore', color=c, zorder=2, linewidth=0.175)
-                            layer_keys_copied.remove(k)
-
-            # add vessel maps  
-            if analyse_choroid:
-                ax.imshow(all_vcmap, alpha=0.5)
-            fig.tight_layout(pad=0)
-            fig.savefig(os.path.join(save_path, f"{fname}_volume_octseg.png"), dpi=1000)
-            plt.close()
+                utils.plot_composite_volume(bscan_data, vmasks, fovea_slice_num, 
+                                            layer_pairwise, reshape_idx, 
+                                            analyse_choroid, fname, save_path)
+            else:
+                msg = f'Volume scan with {N_scans} B-scans cannot currently be reshaped into single, composite image.'
+                logging_list.append(msg)
+                if verbose:
+                    print(msg)
 
         # Organise traces to be saved out - overcomplicated as I am working
         # with pairwise segmentation traces, not individual ones. 

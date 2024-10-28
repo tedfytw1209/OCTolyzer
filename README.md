@@ -234,6 +234,44 @@ If you are interested in colour fundus photography (CFP) image analysis, check t
 * [Automorph](https://github.com/rmaphoh/AutoMorph): Automated retinal vascular morphology quantification via a deep learning pipeline.
 
 ---
+
+## Updates
+
+### 24/10/2024
+
+* Improved visualisations of segmentations and regions of interest (ROI) for H-line/V-line B-scans:
+  - Provide support for scans which the pipeline fails to identify the fovea for, including the addition of a flag to metadata on whether OCT fovea was detected (`bscan_missing_fovea`).
+  - Overlay ROI onto OCT B-scan segmentation image (green shaded background with legend stating size of ROI). This disappears if measurements were not computed (see point below).
+  - Added end-user log outputs in case measuring fails for a H-line/V-line scan due to too large an ROI (via `linescan_roi_distance`) or too short a segmentation.
+
+* Improved visualisations of segmentations and regions of interest (ROI) for Ppole scans (at present, only valid for 31-stack and 61-stack volumes):
+  - Saved out single, fovea-centred B-scan from the volume stack separately with segmentations overlaid for inspection.
+  - Save out high-res composite image of all remaining B-scans from volume stiched together with segmentations overlaid for inspection.
+
+
+### 22/10/2024
+
+* Peripapillary B-scan analysis:
+  - Thickness arrays padding wraps instead of reflects.
+  - Colinear alignment between optic disc centre, en face fovea and acquisition line fixed given assumed acquisition moves clockwise from clock position "3".
+  - Peripapillary subfield definition have more flexibility to rotate during alignment, given position of en face fovea.
+  - Interpolate over any missing values in peripapillary thickness array.
+  - When rotating peripapillary grid, suppress warning when taking remainder of 0.
+
+* Removal and renaming of en face retinal vessel features to align with SLOctolyzer's current set of features:
+  - Tortuosity distance ("tortuosity_curvebychord") and Squared curvature tortuosity ("tortuosity_sqcurvature") are removed, due to vessel map disconnectedness overexaggerating features.
+  - Renaming "average_width_all" to "global vessel calibre", "average_caliber" to "local vessel calibre" and "vessel_perf_density" to "vessel_density" for better clarity of their definitions.
+
+* Removed `octolyzer/measure/bscan/ppole_measurements.py` as it is not used.
+
+
+### 29/07/2024
+
+* Initial commit of OCTolyzer
+
+
+
+---
 ## Contributors and Citing
 
 The contributors to this method and codebase are:

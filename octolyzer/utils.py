@@ -1023,6 +1023,73 @@ def load_annotation(path, key=None, raw=False, binary=False):
     return cmap
 
 
+def plot_composite_volume(bscan_data, vmasks, fovea_slice_num, layer_pairwise, reshape_idx, analyse_choroid, fname, save_path):
+    '''
+    Plot high-res, composite image of all volume B-scans (apart from fovea-centred one) stitched together with
+    segmentations overlaid.
+    '''
+    # Get layer names
+    pairwise_keys = list(layer_pairwise.keys())
+    layer_keys = list(set(pd.DataFrame(pairwise_keys).reset_index(drop=True)[0].str.split("_", expand=True).values.flatten()))
+    
+    # Organise B-scan data and choroid vessel maps
+    img_shape = bscan_data.shape[-2:]
+    M, N = img_shape
+    bscan_list = list(bscan_data.copy())
+    bscan_list.pop(fovea_slice_num)
+    bscan_arr = np.array(bscan_list)
+    bscan_arr = bscan_arr.reshape(*reshape_idx,*img_shape)
+    bscan_hstacks = []
+
+    if analyse_choroid:
+        vmasks_list = list(vmasks.copy())
+        vmasks_list.pop(fovea_slice_num)
+        vmasks_arr = np.asarray(vmasks_list)
+        vmasks_arr = vmasks_arr.reshape(*reshape_idx,M,N)
+        vmask_hstacks = []
+
+    # Stack B-scans and vessel maps horizontally
+    for i in range(reshape_idx[0]):
+        bscan_hstacks.append(np.hstack(bscan_arr[i]))
+        if analyse_choroid:
+            vmask_hstacks.append(np.hstack(vmasks_arr[i]))
+
+    # Stack B-scans and vessel maps vertically
+    bscan_stacked = np.vstack(bscan_hstacks)
+    if analyse_choroid:
+        vmask_stacked = np.vstack(vmask_hstacks)
+        all_vcmap = np.concatenate([vmask_stacked[...,np.newaxis]] 
+                    + 2*[np.zeros_like(vmask_stacked)[...,np.newaxis]] 
+                    + [vmask_stacked[...,np.newaxis] > 0.01], axis=-1)
+
+    # figure to be saved out at same dimensions as stacked array
+    h,w = bscan_stacked.shape
+    np.random.seed(0)
+    COLORS = {key:np.random.randint(255, size=3)/255 for key in layer_keys}
+    fig, ax = plt.subplots(1,1,figsize=(w/1000, h/1000), dpi=100)
+    ax.set_axis_off()
+    ax.imshow(bscan_stacked, cmap='gray')
+
+    # add all traces
+    for (i, j) in np.ndindex(reshape_idx):
+        layer_keys_copied = layer_keys.copy()
+        for key, traces in layer_pairwise.items():
+            tr = traces.copy()
+            tr.pop(fovea_slice_num)
+            for (k, t) in zip(key.split("_"), tr[reshape_idx[1]*i + j]):
+                if k in layer_keys_copied:
+                    c = COLORS[k]
+                    ax.plot(t[:,0]+j*N,t[:,1]+i*M, label='_ignore', color=c, zorder=2, linewidth=0.175)
+                    layer_keys_copied.remove(k)
+
+    # add vessel maps  
+    if analyse_choroid:
+        ax.imshow(all_vcmap, alpha=0.5)
+    fig.tight_layout(pad=0)
+    fig.savefig(os.path.join(save_path, f"{fname}_volume_octseg.png"), dpi=1000)
+    plt.close()
+
+
 def print_error(e, verbose=True):
     '''
     If robust_run is 1 and an unexpected error occurs, this will be printed out and also saved to the log.
