@@ -18,6 +18,7 @@ from pathlib import Path, PosixPath, WindowsPath
 
 from octolyzer.measure.bscan.thickness_maps import grid
 from octolyzer.segment.octseg import choroidalyzer_inference, deepgpet_inference
+from octolyzer.segment.sloseg import fov_inference 
 from octolyzer.measure.bscan import bscan_measurements
 from octolyzer.measure.bscan.thickness_maps import map as map_module
 from octolyzer import analyse_slo, utils, collate_data
@@ -167,7 +168,9 @@ def analyse(path,
     slo_metrics = False
     new_avodmap = False
     new_binary = False
-    slo_recompute = new_avodmap + new_binary
+    new_fovea = False
+    oct_metrics = False
+    slo_recompute = new_avodmap + new_binary + new_fovea
     if analyse_slo_flag:
         slo_metrics = True
 
@@ -184,23 +187,24 @@ def analyse(path,
             # Check if manual annotation exists - this is copied from sloctolyzer/main.py
             binary_nii_path = os.path.join(save_path, f"{fname}_slo_binary_map.nii.gz")
             avod_nii_path = os.path.join(save_path, f"{fname}_slo_avod_map.nii.gz")
+            fovea_nii_path = os.path.join(save_path, f"{fname}_slo_fovea_map.nii.gz")
             if os.path.exists(avod_nii_path):
                 new_avodmap = True
             if os.path.exists(binary_nii_path):
                 new_binary = True
-            slo_recompute = new_avodmap + new_binary
+            if os.path.exists(fovea_nii_path):
+                new_fovea = True
+            slo_recompute = new_avodmap + new_binary + new_fovea
                 
             # Load in manual annotations if they exist, otherwise skip and start from scratch
             segmentation_dict = {}
-            if new_avodmap or new_binary:     
+            if new_avodmap or new_binary or new_fovea:     
                 msg = "\nDetected manual annotation of"
                 ind_df = pd.read_excel(fname_output_path, sheet_name="metadata")
             
                 # Load in annotations if exists. If not, load in already saved segmentation
                 if new_avodmap:
-                    msg += " artery-vein-optic disc mask"
-                    if new_binary:
-                        msg += " and"
+                    msg += " artery-vein-optic disc mask, "
                     new_avodmap = utils.load_annotation(avod_nii_path)
                 else:
                     avodmap = np.array(Image.open(os.path.join(save_path, f"{fname}_slo_avod_map.png")))
@@ -208,12 +212,28 @@ def analyse(path,
                                                 avodmap[...,np.newaxis]==255,
                                                 avodmap[...,np.newaxis]==127,
                                                 avodmap[...,np.newaxis]>0], axis=-1)
+                
+                # Same for binary vessel segmentations
                 if new_binary:
-                    msg += " binary vessel mask"
+                    msg += " binary vessel mask, "
                     new_binary = utils.load_annotation(binary_nii_path, binary=True)
                 else:
                     new_binary = np.array(ImageOps.grayscale(Image.open(os.path.join(save_path, f"{fname}_slo_binary_map.png"))))/255
-                msg += ". Recomputing metrics..."
+
+                # If loading new fovea, update SLO metadata
+                if new_fovea:
+                    msg += " fovea mask."
+                    new_fovea = utils.load_annotation(fovea_nii_path, binary=True)
+                    oct_metrics = True if scan_location == "peripapillary" else False
+                    slo_meta_df.loc[0,"slo_missing_fovea"] = False
+                    ind_df.loc[0,"slo_missing_fovea"] = False
+                else:
+                    new_fovea = np.array(ImageOps.grayscale(Image.open(os.path.join(save_path, f"{fname}_slo_fovea_map.png"))))/255
+                new_fovea = fov_inference._get_fovea(new_fovea)
+                slo_meta_df.loc[0,["slo_fovea_x", "slo_fovea_y"]] = new_fovea[0], new_fovea[1]
+                ind_df.loc[0,["slo_fovea_x", "slo_fovea_y"]] = new_fovea[0], new_fovea[1]
+                    
+                msg += ". Recomputing metrics if SLO retinal vessels were edited..."
                 print(msg)
                 logging_list.append(msg)
                     
@@ -249,11 +269,10 @@ def analyse(path,
         have_slo = False
         slo_analysis_output = None
 
-    # If recomputed SLO metrics with manual annotations, OCT metrics have already been computed
-    # so load these in and return
+    # If recomputed SLO metrics with manual annotations, OCT metrics will be recomputed if scan is disc-centred, loaded in if macula-centred.
+    # Predicted SLO fovea doesn't impact macula-centred metrics, as Choroidalyzer is used to detect B-scan fovea, 
+    # which is cross-references onto SLO.
     if slo_recompute:
-        ind_df, _, oct_dfs, log = collate_data._load_files(save_path, logging_list=[])
-        oct_analysis_output = ind_df, slo, bscan_data, oct_dfs, [], log
 
         # save new SLO measurements
         if slo_analysis_output is not None:
@@ -269,7 +288,12 @@ def analyse(path,
                             print("worksheet doesn't exist")
                         finally:
                             df.to_excel(writer, sheet_name=f'slo_measurements_{z}', index=False)
-        return slo_analysis_output, oct_analysis_output
+
+        # Load OCT measurements if macula-centred
+        if scan_location != 'peripapillary':
+            ind_df, _, oct_dfs, log = collate_data._load_files(save_path, logging_list=[])
+            oct_analysis_output = ind_df, slo, bscan_data, oct_dfs, [], log
+            return slo_analysis_output, oct_analysis_output
 
 
     # Alert to user we are analysing OCT from here on
@@ -420,7 +444,7 @@ All measurements are made with respect to the image axis (vertical) as this is a
                     print(msg)
                     
                 # pad missing values with NaNs and then wrap array using opposite edges as the thickness array should be continuous at each end
-                thickness_padded = np.pad(thickness, (max(0,stx-1), max(0,(N-1)-enx)), constant_values=np.nan)
+                thickness_padded = np.pad(thickness, (max(0,stx), max(0,(N-1)-enx)), constant_values=np.nan)
                 thickness_padded = np.pad(thickness_padded, (N//2,N//2), mode='wrap')
 
                 # Linear inteprolate across NaNs and slice outinterpolated thickness array
@@ -712,9 +736,23 @@ NOTE:Subregion volumes will not be computed for CVI map."""
             print(msg)
 
         # Extract parameters for generating maps, rmove any vessel pixels outside choroid region for vmasks
-        rmasks = np.array([utils.rebuild_mask(utils.get_trace(rvf_i[0], 0.5, align=False), img_shape=(M,N)) for rvf_i in rvfmasks])
-        vmasks = np.array([rmask*rvf_i[1] for (rmask, rvf_i) in zip(rmasks, rvfmasks)])
         eye = metadata["eye"]
+        if analyse_choroid:
+            
+            # error handling for unexpected issues in volume stack when processing choroid segmentations
+            rmasks = []
+            rtraces = []
+            vmasks = []
+            for i, rvf_i in enumerate(rvfmasks):
+                try:
+                    trace = utils.get_trace(rvf_i[0], 0.5, align=False)
+                    rtraces.append(trace)
+                    rmasks.append(utils.rebuild_mask(trace, img_shape=(M,N)))
+                except:
+                    rtraces.append((-1*np.ones((N,2)), -1*np.ones((N,2))))
+                    rmasks.append(np.zeros((M, N)))
+            rmasks = np.array(rmasks)
+            vmasks = np.array([rmask*rvf_i[1] for (rmask, rvf_i) in zip(rmasks, rvfmasks)])
 
         # if retina fully segmentd, then we can also extract other custom_maps.
         # Otheriwse, construct default choroid and retina.
@@ -864,7 +902,6 @@ NOTE:Subregion volumes will not be computed for CVI map."""
 
         # Add choroid Ppole traces to retinal segmentations
         if analyse_choroid:
-            rtraces = [utils.get_trace(rvf_i[0],0.5,False) for rvf_i in rvfmasks]
             layer_pairwise["CHORupper_CHORlower"] = rtraces
             layer_keys.append("CHORupper")
             layer_keys.append("CHORlower")
@@ -878,10 +915,11 @@ NOTE:Subregion volumes will not be computed for CVI map."""
                 print(msg)
 
             # Save out fovea-centred B-scan segmentation visualisation
-            fovea_vmask = vmasks[fovea_slice_num]
-            fovea_vcmap = np.concatenate([fovea_vmask[...,np.newaxis]] 
-                    + 2*[np.zeros_like(fovea_vmask)[...,np.newaxis]] 
-                    + [fovea_vmask[...,np.newaxis] > 0.01], axis=-1)
+            if analyse_choroid:
+                fovea_vmask = vmasks[fovea_slice_num]
+                fovea_vcmap = np.concatenate([fovea_vmask[...,np.newaxis]] 
+                        + 2*[np.zeros_like(fovea_vmask)[...,np.newaxis]] 
+                        + [fovea_vmask[...,np.newaxis] > 0.01], axis=-1)
             
             # Plot segmentations over fovea-centred B-scan
             layer_keys_copied = layer_keys.copy()
@@ -949,7 +987,6 @@ NOTE:Subregion volumes will not be computed for CVI map."""
                             log_save = [message, user_fail]
                             logging_list.extend(log_save)
                             if verbose:
-                                print(message)
                                 print(user_fail)
                             all_ytr[s_idx] = {i:np.nan for i in range(N)}
      

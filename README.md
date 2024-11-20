@@ -200,7 +200,7 @@ Additionally, for smaller regions of interest, zones B and C, and the whole imag
 
 We do not have any automatic functionality within OCTolyzer to correct any segmentation errors. Thus, we rely on the user to identify any visible problems with vessel classification.
 
-However, we do provide functionality to manually correct en face retinal vessel segmentations on the SLO via ITK-Snap. There are instructions on using ITK-Snap for manual annotations in `instructions/SLO_manual_annotations` which describe how to setup ITK-Snap and use it to correct the binary vessel mask, and/or the artery-vein-optic disc segmentation masks. 
+However, we do provide functionality to manually correct en face retinal vessel segmentations and foveola centralis on the SLO via ITK-Snap. There are instructions on using ITK-Snap for manual annotations in `instructions/SLO_manual_annotations` which describe how to setup ITK-Snap and use it to correct the binary vessel mask, and/or the artery-vein-optic disc segmentation mask, and/or the fovea segmentation mask. 
 
 Once the corrected segmentations are saved out as `.nii.gz` files in the same folder with the original `.png` segmentation mask(s), the pipeline can be run again and OCTolyzer should automatically identify these additional manual annotations and re-compute the features!
 
@@ -236,6 +236,21 @@ If you are interested in colour fundus photography (CFP) image analysis, check t
 ---
 
 ## Updates
+
+### 20/11/2024
+
+*  Additional functionality to manually correct the foveola centralis on the SLO using ITK-Snap.
+  - In a similar style to manual correction of retinal vessels, ITK-Snap is used to manually select the region of the fovea.
+  - See "Fixing segmentation errors" above for brief information on how this correction is passed to OCTolyzer.
+  - For more detailed instructions, see the instruction document at `instructions/SLO_manual_annotations`.
+
+*  Error handling with invalid segmentations in posterior pole volume scan processing
+  - Any anomolous segmentations detected that may arise from, say, a clipped B-scan in the stack are set to 0 and ignored in the map generation. 
+  - During measurement, these are treated as missing values and, like normal, interpolated over (linearly).
+
+*  Minor bug in interpolating over missing values in peripapillary B-scan segmentations
+  - Corrected a single pixel indexing issue when padding thickness array to deal with missing values
+
 
 ### 24/10/2024
 

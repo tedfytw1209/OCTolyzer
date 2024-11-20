@@ -194,18 +194,21 @@ def measure_thickness(chorsegs, fovea, scale, offset=15, max_N=768,
         if bmap.ndim == 3:
             traces = bmap.copy()
         else:
-            traces = get_trace(bmap, seg_thresh=0.5, crop_thresh=region_thresh, align=True)
+            try:
+                traces = get_trace(bmap, seg_thresh=0.5, crop_thresh=region_thresh, align=True)
+            except:
+                traces = (np.empty((0,2)), np.empty((0,2)))
         top_chor, bot_chor = traces
     
         # Catch exception if a B-scan doesn't have any segmentations,
         N_t = top_chor.shape[0]
         N_b = bot_chor.shape[0]
         if (N_t == 0) or (N_b == 0):
-            fail_msg = f"WARNING: B-scan {idx+1}/{N_scans} does not have a valid trace. This slice will be empty in the map"
+            fail_msg = f"WARNING: B-scan {idx+1}/{N_scans} does not have a valid trace for this layer. This slice will be empty in the map"
             print(fail_msg)
             logging.append(fail_msg)
             ct_topStx.append(0)
-            ct_data.append(np.zeros((max_N)))
+            ct_data.append(-1*np.ones((max_N)))
             ct_fovs.append(fovea[0])
             continue
 
@@ -276,21 +279,26 @@ def measure_vessels(ves_chorsegs, reg_chorsegs, fovea, scale, offset=15, max_N=7
     for idx, (v_binmap, reg_bmap) in enumerate(tqdm(zip(ves_chorsegs, reg_chorsegs), total=N_scans, disable=disable_progress)):
 
         # Smart crop
-        traces = get_trace(reg_bmap, seg_thresh=0.5, crop_thresh=region_thresh, align=True)
+        # Error handling if B-scan clipped so region mask is invalid, making vessel mask invalid
+        try:
+            traces = get_trace(reg_bmap, seg_thresh=0.5, crop_thresh=region_thresh, align=True)
+            binmap = v_binmap * reg_bmap
+        except:
+            traces = (np.empty((0,2)), np.empty((0,2)))
+            binmap = np.zeros_like(reg_bmap)
         top_chor, bot_chor = traces
-        binmap = v_binmap * reg_bmap
     
         
         # Catch exception if a B-scan doesn't have any segmentations,
         N_t = top_chor.shape[0]
         N_b = bot_chor.shape[0]
         if (N_t == 0) or (N_b == 0):
-            fail_msg = f"WARNING: B-scan {idx+1}/{N_scans} does not have a valid trace. This slice will be empty in the map"
+            fail_msg = f"WARNING: B-scan {idx+1}/{N_scans} does not have a valid trace for this layer. This slice will be empty in the map"
             print(fail_msg)
             logging.append(fail_msg)
             cv_topStx.append(0)
-            cv_data.append(np.zeros((max_N)))
-            cvi_data.append(np.zeros((max_N)))
+            cv_data.append(-1*np.ones((max_N)))
+            cvi_data.append(-1*np.ones((max_N)))
             cv_fovs.append(fovea[0])
             continue
 
