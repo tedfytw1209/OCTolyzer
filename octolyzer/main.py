@@ -130,7 +130,7 @@ def run(args):
         
         fname_path = os.path.join(save_directory, fname)
         output_fname = os.path.join(fname_path, f"{fname}_output.xlsx")
-        slo_mannotations = len(list(Path(fname_path).glob("*.nii.gz"))) > 0
+        slo_mannotations = ( len(list(Path(fname_path).glob("*.nii.gz"))) - len(list(Path(fname_path).glob("*_used.nii.gz"))) )  > 0
         param_dict['manual_annotation'] = int(slo_mannotations)
         if os.path.exists(output_fname) and not slo_mannotations:
             print(f"Previously analysed {fname}.")

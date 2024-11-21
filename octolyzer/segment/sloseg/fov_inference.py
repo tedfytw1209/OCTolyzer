@@ -103,7 +103,10 @@ def _get_fovea(pred, threshold=0.5):
     Extract fovea coordinate from thresholded mask
     '''
     # If fovea mask predicts lower than threshold, apply filter instead of centroid
-    binmask = (pred > threshold).cpu().numpy()[0]
+    if isinstance(pred, np.ndarray):
+        binmask = pred > threshold
+    else:
+        binmask = (pred > threshold).cpu().numpy()[0]
     if binmask.sum() == 0:
         fovea = _process_fovea_prediction(pred)[0]
         return fovea

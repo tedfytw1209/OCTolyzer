@@ -207,8 +207,8 @@ def analyse(path,
             print(msg)
         fmask, fovea = fov_model.predict_img(slo)
         if save_images:
-            cv2.imwrite(os.path.join(save_path,f"{fname}_slo_fovea_map.png"), 
-                        (255*fmask).astype(np.uint8))
+            fpred = 255*(fmask > 0.5).astype(np.uint8)
+            cv2.imwrite(os.path.join(save_path,f"{fname}_slo_fovea_map.png"), fpred)
         segmentations.append(fmask)
 
         # artery-vein-optic disc detection, using binary vessel detector as original reference

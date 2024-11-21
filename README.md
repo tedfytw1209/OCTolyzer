@@ -239,16 +239,16 @@ If you are interested in colour fundus photography (CFP) image analysis, check t
 
 ### 20/11/2024
 
-*  Additional functionality to manually correct the foveola centralis on the SLO using ITK-Snap.
+* Additional functionality to manually correct the foveola centralis on the SLO using ITK-Snap.
   - In a similar style to manual correction of retinal vessels, ITK-Snap is used to manually select the region of the fovea.
   - See "Fixing segmentation errors" above for brief information on how this correction is passed to OCTolyzer.
   - For more detailed instructions, see the instruction document at `instructions/SLO_manual_annotations`.
 
-*  Error handling with invalid segmentations in posterior pole volume scan processing
+* Error handling with invalid segmentations in posterior pole volume scan processing
   - Any anomolous segmentations detected that may arise from, say, a clipped B-scan in the stack are set to 0 and ignored in the map generation. 
   - During measurement, these are treated as missing values and, like normal, interpolated over (linearly).
 
-*  Minor bug in interpolating over missing values in peripapillary B-scan segmentations
+* Minor bug in interpolating over missing values in peripapillary B-scan segmentations
   - Corrected a single pixel indexing issue when padding thickness array to deal with missing values
 
 

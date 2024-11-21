@@ -163,14 +163,18 @@ def analyse(path,
         slo_location = "Macula"
     eye = metadata["eye"]
 
-    # We need to analyse SLO if we have a peripapillary scan so we have the fovea and AV map
-    # for optic disc assessment
-    slo_metrics = False
-    new_avodmap = False
-    new_binary = False
-    new_fovea = False
+    # By default, we don't have any manual annotations of retinal vessels/fovea
+    new_avodmap_flag = False
+    new_binary_flag = False
+    new_fovea_flag = False
+
+    # Flag only used if fovea is manually edited and we are analysing a peripapillary scan, as this influences peripapillary measurements
     oct_metrics = False
-    slo_recompute = new_avodmap + new_binary + new_fovea
+    slo_missing_fovea = False
+    
+    # By default we won't compute slo_metrics, unless we have any new manual annotations
+    slo_metrics = False
+    slo_recompute = new_avodmap_flag + new_binary_flag + new_fovea_flag
     if analyse_slo_flag:
         slo_metrics = True
 
@@ -179,7 +183,6 @@ def analyse(path,
     have_slo = True
 
     # OCT analysis is the priority, so skip SLO analysis if unexpected error occurs
-    slo_missing_fovea = False
     try:
         fname_output_path = os.path.join(save_path,f'{fname}_output.xlsx')
         if have_slo and (analyse_slo_flag or scan_location == 'peripapillary'):
@@ -189,21 +192,21 @@ def analyse(path,
             avod_nii_path = os.path.join(save_path, f"{fname}_slo_avod_map.nii.gz")
             fovea_nii_path = os.path.join(save_path, f"{fname}_slo_fovea_map.nii.gz")
             if os.path.exists(avod_nii_path):
-                new_avodmap = True
+                new_avodmap_flag = True
             if os.path.exists(binary_nii_path):
-                new_binary = True
+                new_binary_flag = True
             if os.path.exists(fovea_nii_path):
-                new_fovea = True
-            slo_recompute = new_avodmap + new_binary + new_fovea
+                new_fovea_flag = True
+            slo_recompute = new_avodmap_flag + new_binary_flag + new_fovea_flag
                 
             # Load in manual annotations if they exist, otherwise skip and start from scratch
             segmentation_dict = {}
-            if new_avodmap or new_binary or new_fovea:     
+            if (new_avodmap_flag or new_binary_flag or new_fovea_flag) and os.path.exists(fname_output_path) :     
                 msg = "\nDetected manual annotation of"
                 ind_df = pd.read_excel(fname_output_path, sheet_name="metadata")
             
                 # Load in annotations if exists. If not, load in already saved segmentation
-                if new_avodmap:
+                if new_avodmap_flag:
                     msg += " artery-vein-optic disc mask, "
                     new_avodmap = utils.load_annotation(avod_nii_path)
                 else:
@@ -214,26 +217,27 @@ def analyse(path,
                                                 avodmap[...,np.newaxis]>0], axis=-1)
                 
                 # Same for binary vessel segmentations
-                if new_binary:
+                if new_binary_flag:
                     msg += " binary vessel mask, "
                     new_binary = utils.load_annotation(binary_nii_path, binary=True)
                 else:
                     new_binary = np.array(ImageOps.grayscale(Image.open(os.path.join(save_path, f"{fname}_slo_binary_map.png"))))/255
-
+    
                 # If loading new fovea, update SLO metadata
-                if new_fovea:
+                if new_fovea_flag:
                     msg += " fovea mask."
                     new_fovea = utils.load_annotation(fovea_nii_path, binary=True)
+                    cv2.imwrite(os.path.join(save_path,f"{fname}_slo_fovea_map.png"), 255*new_fovea)
                     oct_metrics = True if scan_location == "peripapillary" else False
-                    slo_meta_df.loc[0,"slo_missing_fovea"] = False
                     ind_df.loc[0,"slo_missing_fovea"] = False
                 else:
                     new_fovea = np.array(ImageOps.grayscale(Image.open(os.path.join(save_path, f"{fname}_slo_fovea_map.png"))))/255
                 new_fovea = fov_inference._get_fovea(new_fovea)
-                slo_meta_df.loc[0,["slo_fovea_x", "slo_fovea_y"]] = new_fovea[0], new_fovea[1]
                 ind_df.loc[0,["slo_fovea_x", "slo_fovea_y"]] = new_fovea[0], new_fovea[1]
-                    
-                msg += ". Recomputing metrics if SLO retinal vessels were edited..."
+    
+                # Only recomputing SLO metrics if manual annotations exist for retinal vessels
+                if analyse_slo_flag:
+                    msg += " Recomputing metrics if SLO retinal vessels were edited."
                 print(msg)
                 logging_list.append(msg)
                     
@@ -251,7 +255,10 @@ def analyse(path,
             slo_meta_df, slo_measure_dfs, _, slo_segmentations, slo_logging_list = slo_analysis_output
             logging_list.extend(slo_logging_list)
             slo_avimout = slo_segmentations[-1]
-
+    
+            if new_fovea_flag:
+                slo_meta_df.loc[0,"slo_missing_fovea"] = False
+                slo_meta_df.loc[0,["slo_fovea_x", "slo_fovea_y"]] = new_fovea[0], new_fovea[1]
             slo_missing_fovea = slo_meta_df.slo_missing_fovea.values[0].astype(bool)
             fovea_at_slo = slo_meta_df[["slo_fovea_x", "slo_fovea_y"]].values[0].astype(int)
             
@@ -273,6 +280,18 @@ def analyse(path,
     # Predicted SLO fovea doesn't impact macula-centred metrics, as Choroidalyzer is used to detect B-scan fovea, 
     # which is cross-references onto SLO.
     if slo_recompute:
+
+        # Renaming manual annotation files to prevent automatically re-computing metrics when they've already been used.
+        msg = f"Adding suffix '_used' to .nii.gz files to prevent automatic re-computing when re-running again."
+        if new_avodmap_flag:
+            os.rename(avod_nii_path, avod_nii_path.split(".")[0]+"_used.nii.gz")
+        if new_binary_flag:
+            os.rename(binary_nii_path, binary_nii_path.split(".")[0]+"_used.nii.gz")
+        if new_fovea_flag:
+            os.rename(fovea_nii_path, fovea_nii_path.split(".")[0]+"_used.nii.gz")
+        if verbose:
+            print(msg)
+        logging_list.append(msg)
 
         # save new SLO measurements
         if slo_analysis_output is not None:
