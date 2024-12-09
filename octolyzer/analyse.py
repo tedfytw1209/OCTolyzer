@@ -284,10 +284,16 @@ def analyse(path,
         # Renaming manual annotation files to prevent automatically re-computing metrics when they've already been used.
         msg = f"Adding suffix '_used' to .nii.gz files to prevent automatic re-computing when re-running again."
         if new_avodmap_flag:
+            if os.path.exists(avod_nii_path.split(".")[0]+"_used.nii.gz"):
+                os.remove(avod_nii_path.split(".")[0]+"_used.nii.gz")
             os.rename(avod_nii_path, avod_nii_path.split(".")[0]+"_used.nii.gz")
         if new_binary_flag:
+            if os.path.exists(binary_nii_path.split(".")[0]+"_used.nii.gz"):
+                os.remove(binary_nii_path.split(".")[0]+"_used.nii.gz")
             os.rename(binary_nii_path, binary_nii_path.split(".")[0]+"_used.nii.gz")
         if new_fovea_flag:
+            if os.path.exists(fovea_nii_path.split(".")[0]+"_used.nii.gz"):
+                os.remove(fovea_nii_path.split(".")[0]+"_used.nii.gz")
             os.rename(fovea_nii_path, fovea_nii_path.split(".")[0]+"_used.nii.gz")
         if verbose:
             print(msg)
