@@ -2,7 +2,7 @@
 
 OCTolyzer is a fully automatic pipeline capable of fully characterising the retinal and choroidal layers as seen on cross-sectional OCT images. It also supports segmentation and analysis of the en face retinal vessels on the corresponding confocal, infra-red scanning laser ophthalmoscopy (SLO) image, with additional detection of the fovea and optic disc. The pipeline utilises several fully automatic deep learning methods for segmentation of the OCT choroid and en face retinal vessels, and utilises the OCT retinal layer segmentations from the imaging device's built-in software, acessible from from file metadata, for generating retinochoroidal OCT measurements and en face retinal vessel measurements.
 
-Please find the pre-print describing OCTolyzer's pipeline [here](https://arxiv.org/abs/2407.14128), which is currently under review at "New Frontiers in Optical Coherence Tomography" special issue of ARVO's Translational Vision Science and Technology.
+Please find the pre-print describing OCTolyzer's pipeline [here](https://arxiv.org/abs/2407.14128), which is currently under review at Elseiver's Medical Image Analysis.
 
 OCTolyzer is also capable of extracting clinically-relevant features of interest of the retina and choroid. The code used to measure regional and spatial measurements from OCT images was developed in-house, while the code used to measure features of en face retinal vessels were based on the code produced by [Automorph](https://tvst.arvojournals.org/article.aspx?articleid=2783477), whose codebase can be found [here](https://github.com/rmaphoh/AutoMorph).
 
