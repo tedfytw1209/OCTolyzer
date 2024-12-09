@@ -930,7 +930,7 @@ NOTE:Subregion volumes will not be computed for CVI map."""
             layer_pairwise["CHORupper_CHORlower"] = rtraces
             layer_keys.append("CHORupper")
             layer_keys.append("CHORlower")
-
+            
         # Save out volumetric OCT B-scan segmentations
         if save_ind_segmentations:
 
@@ -945,6 +945,8 @@ NOTE:Subregion volumes will not be computed for CVI map."""
                 fovea_vcmap = np.concatenate([fovea_vmask[...,np.newaxis]] 
                         + 2*[np.zeros_like(fovea_vmask)[...,np.newaxis]] 
                         + [fovea_vmask[...,np.newaxis] > 0.01], axis=-1)
+            else:
+                vmasks = None
             
             # Plot segmentations over fovea-centred B-scan
             layer_keys_copied = layer_keys.copy()
