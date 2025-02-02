@@ -2,10 +2,10 @@
 # MAKE SURE NAMES AND INPUTS ARE SEPARATED WITH ": " [colon-spacebar]
 
 # This is the folder which .vol files will be read from and analysed
-analysis_directory: C:\Users\s1522100\Documents\PhD Work\Python Scripts\Github\OCTolyzer\analyze\demo
+analysis_directory: /Users/s1522100/Documents/OCTolyzer/demo/input
 
 # This is the folder which will save all results into
-output_directory: C:\Users\s1522100\Documents\PhD Work\Python Scripts\Github\OCTolyzer\analyze\output
+output_directory: /Users/s1522100/Documents/OCTolyzer/demo/output_020225
 
 --------------------------------------------------------------------------------------------------------
 
@@ -45,6 +45,6 @@ analyse_square_grid: 0
 # Only valid for OCT Volume and Linescan data
 choroid_measure_type: perpendicular
 
-# Distance either side of fovea to measure structures in H-line, V-line scans in microns, i.e. 500 microns, 3000 microns, etc.
-# Only valid for OCT Linescan data, centred at the fovea (H-line/V-line)
-linescan_roi_distance: 3000
+# Distance either side of fovea to measure structures in H-line/V-line/Radial scans in microns, i.e. 500 microns, 3000 microns, etc.
+# Only valid for OCT Linescan data, centred at the fovea (H-line/V-line/Radial)
+linescan_roi_distance: 1500
