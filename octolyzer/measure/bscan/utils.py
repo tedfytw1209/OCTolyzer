@@ -3,11 +3,9 @@ import skimage as sk
 import matplotlib.pyplot as plt
 import logging
 import pandas as pd
-
 import pickle
 import os
 import torch
-
 from PIL import Image
 from scipy import interpolate as interp
 from skimage import exposure
@@ -16,115 +14,25 @@ from skimage import morphology as morph
 from sklearn.linear_model import LinearRegression
 
 
-def extract_bounds(mask):
-    '''
-    Given a binary mask, return the top and bottom boundaries, 
-    assuming the segmentation is fully-connected.
-    '''
-    # Stack of indexes where mask has predicted 1
-    where_ones = np.vstack(np.where(mask.T)).T
-    
-    # Sort along horizontal axis and extract indexes where differences are
-    sort_idxs = np.argwhere(np.diff(where_ones[:,0]))
-    
-    # Top and bottom bounds are either at these indexes or consecutive locations.
-    bot_bounds = np.concatenate([where_ones[sort_idxs].squeeze(),
-                                 where_ones[-1,np.newaxis]], axis=0)
-    top_bounds = np.concatenate([where_ones[0,np.newaxis],
-                                 where_ones[sort_idxs+1].squeeze()], axis=0)
-    
-    return (top_bounds, bot_bounds)
-
-
-def select_largest_mask(binmask):
-    '''
-    Enforce connectivity of region segmentation
-    '''
-    # Look at which of the region has the largest area, and set all other regions to 0
-    labels_mask = sk.measure.label(binmask)                       
-    regions = sk.measure.regionprops(labels_mask)
-    regions.sort(key=lambda x: x.area, reverse=True)
-    if len(regions) > 1:
-        for rg in regions[1:]:
-            labels_mask[rg.coords[:,0], rg.coords[:,1]] = 0
-    labels_mask[labels_mask!=0] = 1
-
-    return labels_mask
-
-
-def interp_trace(traces, align=True):
-    '''
-    Quick helper function to make sure every trace is evaluated 
-    across every x-value that it's length covers.
-    '''
-    new_traces = []
-    for i in range(2):
-        tr = traces[i]  
-        min_x, max_x = (tr[:,0].min(), tr[:,0].max())
-        x_grid = np.arange(min_x, max_x)
-        y_interp = np.interp(x_grid, tr[:,0], tr[:,1]).astype(int)
-        interp_trace = np.concatenate([x_grid.reshape(-1,1), y_interp.reshape(-1,1)], axis=1)
-        new_traces.append(interp_trace)
-
-    # Crop traces to make sure they are aligned
-    if align:
-        top, bot = new_traces
-        h_idx=0
-        top_stx, bot_stx = top[0,h_idx], bot[0,h_idx]
-        common_st_idx = max(top[0,h_idx], bot[0,h_idx])
-        common_en_idx = min(top[-1,h_idx], bot[-1,h_idx])
-        shifted_top = top[common_st_idx-top_stx:common_en_idx-top_stx]
-        shifted_bot = bot[common_st_idx-bot_stx:common_en_idx-bot_stx]
-        new_traces = (shifted_top, shifted_bot)
-
-    return tuple(new_traces)
-
-
-
-def smart_crop(traces, check_idx=20, ythresh=1, align=True):
-    '''
-    Instead of defining an offset to check for and crop in utils.crop_trace(), which
-    may depend on the size of the choroid itself, this checks to make sure that adjacent
-    changes in the y-values of each trace are small, defined by ythresh.
-    '''
-    cropped_tr = []
-    for i in range(2):
-        _chor = traces[i]
-        ends_l = np.argwhere(np.abs(np.diff(_chor[:check_idx,1])) > ythresh)
-        ends_r = np.argwhere(np.abs(np.diff(_chor[-check_idx:,1])) > ythresh)
-        if ends_r.shape[0] != 0:
-            _chor = _chor[:-(check_idx-ends_r.min())]
-        if ends_l.shape[0] != 0:
-            _chor = _chor[ends_l.max()+1:]
-        cropped_tr.append(_chor)
-
-    return interp_trace(cropped_tr, align=align)
-
-
-
-def get_trace(binmask, threshold=None, align=False):
-    '''
-    Helper function to extract traces from a prediction mask. 
-    This thresholds the mask, selects the largest mask, extracts upper
-    and lower bounds of the mask and crops any endpoints which aren't continuous.
-    '''
-    if threshold is not None:
-        binmask = (binmask > threshold).astype(int)
-    binmask = select_largest_mask(binmask)
-    traces = extract_bounds(binmask)
-    traces = smart_crop(traces, align=align)
-    return traces
-
-
-
-
-
 def curve_length(curve, scale=(11.49,3.87)):
     """
-    Calculate the length (in microns) of a curve defined by a numpy array of coordinates.
+    Calculate the length of a curve in microns based on its coordinates.
 
-    This uses the euclidean distance and converts each unit step into the number of microns
-    traversed in both axial directions.
+    This function computes the curve's length using the Euclidean distance between 
+    consecutive points and scales the pixel distances into microns.
+
+    Parameters
+    ----------
+    curve : np.ndarray
+        A 2D array of coordinates (x, y) defining the curve.
+        
+    scale : tuple[float, float], default=(11.49, 3.87)
+        Scaling factors in microns-per-pixel for the x and y directions.
+
+    Returns
+    -------
+    length : float
+        The total length of the curve in microns.
     """
     # Scale constants
     xum_per_pix, yum_per_pix = scale
@@ -144,11 +52,41 @@ def curve_length(curve, scale=(11.49,3.87)):
 
 def curve_location(curve, distance=2000, ref_idx=400, scale=(11.49,3.87), verbose=0):
     """
-    Given a curve, what two coordinates are *distance* microns away from some coordinate indexed by
-    *ref_idx*.
+    Find coordinates on a curve that are a specified distance away from a reference point.
 
-    This uses the euclidean distance and converts each unit step into the number of microns
-    traversed in both axial directions.
+    This function identifies two points on a curve that are approximately `distance` microns 
+    away from a reference point, indexed by `ref_idx`. It uses cumulative Euclidean distance 
+    scaled by the specified microns-per-pixel values.
+
+    Parameters
+    ----------
+    curve : np.ndarray
+        A 2D array of coordinates (x, y) defining the curve.
+        
+    distance : float, default=2000
+        The distance in microns from the reference point.
+        
+    ref_idx : int, default=400
+        Index of the reference coordinate on the curve.
+        
+    scale : tuple[float, float], default=(11.49, 3.87)
+        Scaling factors in microns per pixel for the x and y directions.
+        
+    verbose : int or bool, default=0
+        Verbosity level. If greater than 0, prints warnings when segmentation is insufficient.
+
+    Returns
+    -------
+    idx_l : int or None
+        Index of the coordinate to the left of `ref_idx` at the specified distance.
+        
+    idx_r : int or None
+        Index of the coordinate to the right of `ref_idx` at the specified distance.
+
+    Notes
+    -----
+    If the segmentation length is insufficient for the specified `distance`, 
+    the function returns `None` or `np.nan` and may print warnings based on the `verbose` flag.
     """
     # Work out number of microns per unit pixel movement
     N = curve.shape[0]
@@ -194,9 +132,28 @@ Returning -1s."""
 
 
 def _check_offset(offset, offsets_lr, N_pts):
-    '''
-    Quick helper function to check if offset is too large, and deal with it if so
-    '''
+    """
+    Validate and adjust offsets to ensure they are within valid bounds.
+
+    Parameters
+    ----------
+    offset : int
+        The desired offset value.
+        
+    offsets_lr : tuple[int, int]
+        A tuple containing the left and right offset indices.
+        
+    N_pts : int
+        Total number of points in the trace.
+
+    Returns
+    -------
+    offset_l : int
+        Adjusted left offset index.
+        
+    offset_r : int
+        Adjusted right offset index.
+    """
     (offset_l, offset_r) = offsets_lr
     if offset_l < 0:
         offset_l = 0
@@ -211,26 +168,32 @@ def _check_offset(offset, offsets_lr, N_pts):
 
 def nearest_coord(trace, coord, offset=15, columnwise=False):
     """
-    Given a coordinate, find the nearest coordinate along trace and return it.
+    Find the nearest coordinate on a trace to a given point and compute offsets.
 
-    INPUTS:
-    ------------------------
-        trace (np.array) : Upper or lower choroid boundary
+    This function identifies the point on a trace closest to a reference coordinate 
+    and calculates offset points for defining a tangent line.
 
-        coord (np.array) : Single xy-coordinate.
+    Parameters
+    ----------
+    trace : np.ndarray
+        A 2D array of coordinates (x, y) defining the trace.
+        
+    coord : np.ndarray
+        A pixel coordinate (x, y) to find the nearest point on the trace.
+        
+    offset : int, default=15
+        Offset distance in indices on either side of the reference point for downstream tangent computation.
+        
+    columnwise : bool, default=False
+        If True, finds the nearest point in the same column (x-coordinate).
 
-        offset (int) : Integer index to select either side of reference point
-        along trace for deducing locally perpendicular CT measurement.
-
-        columnwise (bool) : If flagged, nearest coordinate on the trace is
-            the one at the same column index.
-
-    RETURNS:
-    ------------------------
-        trace_refpt (np.array) : Point along trace closest to coord.
-
-        offset_pts (np.array) : Points offset distance from trace_refpt for deducing
-            local tangent line.
+    Returns
+    -------
+    trace_refpt : np.ndarray
+        The point on the trace closest to `coord`.
+        
+    offset_pts : np.ndarray
+        Points on the trace at the specified offset distances.
     """
     N_pts = trace.shape[0]
 
@@ -253,17 +216,27 @@ def nearest_coord(trace, coord, offset=15, columnwise=False):
 
 def construct_line(p1, p2):
     """
-    Construct straight line between two points p1 and p2.
+    Compute the gradient and intercept of a straight line between two points.
 
-    INPUTS:
-    ------------------
-        p1 (1d-array) : 2D pixel coordinate.
+    Parameters
+    ----------
+    p1 : np.ndarray or list
+        A 2D coordinate (x, y) representing the first point.
+        
+    p2 : np.ndarray or list
+        A 2D coordinate (x, y) representing the second point.
 
-        p2 (1d-array) : 2D pixel coordinate.
+    Returns
+    -------
+    m : float
+        The gradient (slope) of the line.
+        
+    c : float
+        The y-intercept of the line.
 
-    RETURNS:
-    ------------------
-        m, c (floats) : Gradient and intercept of straight line connection points p1 and p2.
+    Notes
+    -----
+    If the line is vertical, the function returns `m` and `c` as `np.inf`.
     """
     # Measure difference between x- and y-coordinates of p1 and p2
     delta_x = (p2[0] - p1[0])
@@ -284,10 +257,42 @@ def construct_line(p1, p2):
 
 def generate_perp_line(pt1, pt2=None, N=None, ref_pt=None):
     """
-    Linear model of tangent line centred at reference
-    point along RPE-Choroid boundary, evaluate far enough 
-    such that rotating by 90 degrees will ensure its
-    intersection with Choroid-Sclera boundary
+    Generates a perpendicular line to a given line (tangent) defined by two points.
+    The line is evaluated far enough to ensure its intersection with a defined boundary 
+    (e.g., Choroid-Sclera boundary) after being rotated by 90 degrees around a reference point.
+
+    Parameters:
+    -----------
+    pt1 : numpy.ndarray
+        A 2D array representing the first point of the tangent line. It must have shape (2,).
+
+    pt2 : numpy.ndarray, optional, default=None
+        A 2D array representing the second point of the tangent line. If not provided, 
+        a linear model is generated from a single point (`pt1`).
+
+    N : int, optional, default=None
+        A scalar value determining how far along the tangent line to evaluate. It defines the 
+        range of the tangent line in the x-direction.
+
+    ref_pt : tuple of int, optional, default=None
+        A tuple containing the x and y coordinates of the reference point around which the tangent 
+        line will be rotated to generate the perpendicular line.
+
+    Returns:
+    --------
+    tuple of numpy.ndarray
+        A tuple containing two 1D numpy arrays: the x and y coordinates of the generated perpendicular line.
+
+    Notes:
+    ------
+    - The function first fits a linear regression model to the tangent line defined by `pt1` and `pt2` (or just `pt1`).
+    - If `N` and `ref_pt` are provided, the function generates the perpendicular line by rotating the tangent line 
+      by 90 degrees around `ref_pt` and evaluates the line over the defined range.
+
+    Example:
+    --------
+    perp_line = generate_perp_line(np.array([1, 2]), pt2=np.array([3, 4]), N=10, ref_pt=(2, 3))
+    # This will return the coordinates of the perpendicular line at a given range, rotated around (2, 3).
     """
     # Fit linear model at reference points along tangent
     if pt2 is None:
@@ -296,18 +301,20 @@ def generate_perp_line(pt1, pt2=None, N=None, ref_pt=None):
         X, y = np.array([pt1[0], pt2[0]]).reshape(-1,1), np.array([pt1[1], pt2[1]])    
     output = LinearRegression().fit(X, y)
 
-    # Evaluate across tangent, rotate at reference point and return perpendicular
-    # linear model
+    # Generate perpendicular line if reference point and sample size provided
     if N is not None and ref_pt is not None:
-        
+
+        # Evaluate across tangent
         ref_x, ref_y = ref_pt
         xtan_grid = np.array([ref_x, X[-1,0]+N])
         ytan_grid = output.predict(xtan_grid.reshape(-1,1)).astype(int)
-        
+
+        # Rotate at reference point 90 degrees
         perp_x = (-(ytan_grid - ref_y) + ref_x).reshape(-1,)
         perp_y = (xtan_grid - ref_x + ref_y).reshape(-1,)
         output = (perp_x, perp_y)
 
+        # build output of perpendicular line
         y_grid = np.arange(perp_y[0], perp_y[1])
         x_grid = np.interp(y_grid, perp_y, perp_x)
         output = (x_grid, y_grid)
@@ -316,53 +323,81 @@ def generate_perp_line(pt1, pt2=None, N=None, ref_pt=None):
 
 
 
-def detect_orthogonal_pts(reference_pts, traces, offset=15, tol=2):
+def detect_orthogonal_coords(reference_pts, traces, offset=15, tol=2):
     """
-    Given the lower choroid boundary and reference points along the upper boundary, detect which
-    coordinates along the lower choroid boundary which intersect the perpendicular line drawn from
-    a tangent line at these reference points.
+    Detects coordinates along the lower boundary that intersect with perpendicular lines
+    drawn from tangent lines at reference points along the upper boundary. The function calculates
+    the points on the lower boundary where the perpendicular lines from the upper boundary's tangent
+    lines intersect, within a given tolerance.
 
-    INPUTS:
-    ------------------
-        reference_pts (np.array) : Points along upper boundary to construct tangent and perpendicular lines at. 
+    Parameters:
+    -----------
+    reference_pts : numpy.ndarray
+        A 2D array of reference points along the upper boundary. Each point defines the location
+        from which a tangent and corresponding perpendicular line will be drawn.
 
-        traces (2-tuple) : Tuple storing the upper and lower boundaries of the segmented chorod, in xy-space.
+    traces : tuple of numpy.ndarray
+        A tuple containing two 2D arrays: the upper and lower boundaries of the segmented layer in xy-space.
+        The upper boundary (`top_lyr`) and the lower boundary (`bot_lyr`) are both 2D arrays of shape (N, 2).
 
-        offset (int) : Value either side of reference point to define tangential line.
+    offset : int, optional, default=15
+        The distance (in pixels) on either side of each reference point used to define the tangent line.
+        This controls how local the tangent lines are defined.
 
-        tol (int) : Threshold to detect any perpendicular lines from the upper to lower boundaries
-        which are deviate away the lower boundary via Euclidean distance, i.e. it's likely these lines 
-        divert away from the segmented region.
+    tol : int, optional, default=2
+        The threshold (in pixels) to detect pixels along the lower boundary which intersect as close to the
+        perpendicular lines.
+
+    Returns:
+    --------
+    tuple of numpy.ndarray
+        - chorscl_pts : The coordinates along the lower choroid boundary where perpendicular lines from the 
+          upper boundary intersect, within the given tolerance.
+        - reference_pts : The original reference points along the upper boundary that correspond to the 
+          detected intersection points on the lower boundary.
+        - perps : The perpendicular lines corresponding to each reference point along the upper boundary, 
+          truncated to the detected intersection points.
+
+    Notes:
+    ------
+    - The function works by generating tangent lines at each reference point on the upper boundary and 
+      calculating the corresponding perpendicular lines.
+    - These perpendicular lines are then compared to the lower boundary to find the intersection points.
+    - The intersection points are accepted if their Euclidean distance to the lower boundary is within the given tolerance.
+
+    Example:
+    --------
+    chorscl_pts, reference_pts, perps = detect_orthogonal_coords(reference_pts, (top_lyr, bot_lyr), offset=20, tol=3)
+    # This will return the coordinates where the perpendicular lines intersect the lower boundary,
+    # along with the corresponding reference points on the upper boundary.
     """
     # Extract traces    
-    top_chor, bot_chor = traces
-    rpechor_stx, chorscl_stx = top_chor[0, 0], bot_chor[0, 0]
+    top_lyr, bot_lyr = traces
+    toplyr_stx, botlyr_stx = top_lyr[0, 0], bot_lyr[0, 0]
 
     # total number of candidate points at each reference point to compare with 
     # Choroid-Sclera boundary
-    N = max([bot_chor[ref_x-chorscl_stx, 1] - ref_y for (ref_x, ref_y) in reference_pts])
+    N = max([bot_lyr[ref_x-botlyr_stx, 1] - ref_y for (ref_x, ref_y) in reference_pts])
     perps = []
     for ref_pt in reference_pts:
     
         # Work out local tangent line for each reference point
         # and rotate orthogonally
         ref_x, ref_y = ref_pt
-        ref_xidx = ref_x - rpechor_stx
-        #N = bot_chor[ref_x-chorscl_stx, 1] - ref_y
-        tan_pt1, tan_pt2 = top_chor[[ref_xidx - offset, ref_xidx + offset]] 
+        ref_xidx = ref_x - toplyr_stx
+        tan_pt1, tan_pt2 = top_lyr[[ref_xidx - offset, ref_xidx + offset]] 
         (perp_x, perp_y) = generate_perp_line(tan_pt1, tan_pt2, N, ref_pt)
         perps.append(np.array([perp_x, perp_y]))
     
     # Vectorised search for points along Choroid-Sclera boundary where orthogonal 
     # lines from RPE-Choroid intersect
     perps = np.array(perps)
-    bot_cropped = bot_chor[(perps[:,0].astype(int)-chorscl_stx).clip(0, bot_chor.shape[0]-1)]
+    bot_cropped = bot_lyr[(perps[:,0].astype(int)-botlyr_stx).clip(0, bot_lyr.shape[0]-1)]
     bot_perps_residuals = np.transpose(perps, (0,2,1)) - bot_cropped
     bot_perps_distances = np.sqrt(((bot_perps_residuals)**2).sum(axis=-1))
-    # print(bot_perps_distances.shape)
-    # print(np.min(bot_perps_distances, axis=-1))
     endpoint_errors = np.min(bot_perps_distances, axis=-1) <= tol 
-    chorscl_indexes = np.argmin(bot_perps_distances, axis=1)
-    chorscl_pts = perps[np.arange(chorscl_indexes.shape[0]),:,chorscl_indexes].astype(int)
+    botlyr_indexes = np.argmin(bot_perps_distances, axis=1)
+    botlyr_pts = perps[np.arange(botlyr_indexes.shape[0]),:,botlyr_indexes].astype(int)
 
-    return chorscl_pts.astype(float), reference_pts.astype(float), perps, endpoint_errors
+    return botlyr_pts[endpoint_errors], reference_pts[endpoint_errors], perps[endpoint_errors].astype(int)
+    

@@ -3,10 +3,8 @@ import numpy as np
 import scipy.integrate as integrate
 import matplotlib.pyplot as plt
 
-from octolyzer.measure.bscan.utils import (extract_bounds, curve_length, curve_location, 
-                                            get_trace, nearest_coord, construct_line, 
-                                            detect_orthogonal_pts, interp_trace)
 from octolyzer import utils
+from octolyzer.measure.bscan import utils as bscan_utils
 
 def compute_measurement(reg_mask, 
                        vess_mask=None, 
@@ -23,38 +21,86 @@ def compute_measurement(reg_mask,
                        verbose: [int, bool]=0,
                        logging_list: list = []):
     """
-    Compute measurements of interest, that is thickness and area using the reg_mask and 
-    CVI (optional) using the vess_mask.
+    Computes choroidal measurements (thickness, area, and vascular index) based on the provided 
+    segmentation masks and parameters.
 
-    Inputs:
-    -------------------------
-    reg_mask : binary mask segmentation of the choroidal space.
-    vess_mask : segmentation of the choroidal space. Need not be binary.
-    fovea : Fovea coordinate to define fovea-centred ROI. Default is center column,row of mask
-    scale: Microns-per-pixel in x and z directions. Default setting is Heidelberg scaling 
-        for emmetropic individual.
-    macula_rum : Micron radius either side of fovea to measure. Default is the largest region in 
-        ETDRS grid (3mm).
-    N_measures : Number of thickness measurements to make across choroid. Default is three: subfoveal and 
-        a single temporal/nasal location.
-    N_avgs : Number of adjecent thicknesses to average at each location to enforce robustness. Default is
-        one column, set as 0.
-    offset : Number of pixel columns to define tangent line around upper boundary reference points, for 
-        accurate, perpendicular detection of lower boundary points.
-    measure_type : Whether to measure locally perpendicular to the upper boundary ("perpendicular") or measure
-        columnwise, i.e. per A-scan ("vertical").
-    plottable : If flagged, returnboundary points defining where thicknesses have been measured, and binary masks
-        where choroid area and vascular index have been measured.
-    force_measurement : If segmentation isn't long enough for macula_rum-N_avgs-offset selection, this forces
-        a measurement to be made by under-measuring. Default: False.
-    verbose : Log to user regarding segmentation length.
-    logging_list : List of log information to save out.
+    Parameters
+    ----------
+    reg_mask : np.ndarray or tuple
+        Binary segmentation mask of the layer. Can be a 2D numpy array or a tuple containing 
+        traces of the boundaries.
+        
+    vess_mask : np.ndarray, optional
+        Binary segmentation mask for identifying choroidal vessels. Required for vascular index (CVI).
+        
+    fovea : tuple or np.ndarray, optional
+        Coordinates of the fovea for defining a fovea-centered region of interest (ROI). If not provided,
+        it defaults to the center of the mask.
+        
+    scale : tuple[int, int], default=(11.49, 3.87)
+        Scaling factors in microns per pixel in the x and y directions, respectively. Default values are 
+        for Heidelberg OCT scaling for a B-scan with lateral pixel resolution of 768.
+        
+    macula_rum : int, default=3000
+        Radius of the macular region of interest in microns, acting as the distance either side of the fovea
+        to define and measure.
+        
+    N_measures : int or str, default='all'
+        Number of thickness measurements across the choroid. If 'all', measures at all points in the ROI are
+        taken.
+        
+    N_avgs : int, default=0
+        Number of adjacent thickness values to average at each measurement location for robustness to local
+        gradient changes.
+        
+    offset : int, default=15
+        Distance either side of reference point (which defines the tangent line) which determines the
+        influence of local gradient changes when drawing perpendicular lines for thickness measurement.
+        
+    measure_type : str, default="perpendicular"
+        Specifies the method of thickness measurement:
+        - "perpendicular": Measures perpendicular to the upper boundary.
+        - "vertical": Measures column-wise (per A-scan).
+        
+    img_shape : tuple, default=(768, 768)
+        Shape of the original image if the mask needs to be rebuilt, e.g. the input is a set of traces rather
+        than a binary mask.
+        
+    plottable : bool, default=False
+        If True, returns boundary points and masks that can be visualised.
+        
+    force_measurement : bool, default=False
+        If True, forces measurements even if the segmentation is shorter than the defined ROI but within a
+        threshold of `offset`.
+        
+    verbose : int or bool, default=0
+        Verbosity level for logging and printing messages.
+        
+    logging_list : list, default=[]
+        List to store log messages for debugging or tracking.
 
-    Outputs:
-    -------------------------
-    ct : choroid thickness, an integer value per location measured (N_measures, the average of N_avgs adjacent thickness values)
-    ca : choroid area in a macula_rum microns, fovea-centred region of interest.
-    cvi : choroid vascular index in a macula_rum microns, fovea-centred region of interest.
+    Returns
+    -------
+    measurements : list
+        Contains computed choroidal metrics:
+        - `ct` : Thickness at each measurement point or as averages (depending on `N_measures`).
+        - `ca` : Area in the specified region of interest.
+        - `cvi` : Choroidal vascular index (if `vess_mask` is provided).
+
+    plotinfo : tuple, optional
+        If `plottable` is True, includes data for visualization:
+        - Boundary points for thickness measurements.
+        - Mask of the region of interest.
+        - Vessel mask if `vess_mask` is provided.
+        
+    logging_list : list
+        Updated list of log messages.
+
+    Notes
+    -----
+    - If the segmentation mask is shorter than the specified macular radius, the function may return -1s.
+    - Enforces robustness by averaging across adjacent points when `N_avgs > 0`.
+    - For accurate results, ensure scaling factors (`scale`) match the imaging system's specifications.
     """
     measurements = []
 
@@ -74,13 +120,13 @@ def compute_measurement(reg_mask,
     if isinstance(reg_mask, np.ndarray):
         if reg_mask.ndim == 2:
             rmask = reg_mask.copy()
-            traces = get_trace(reg_mask, None, align=True)
+            traces = utils.get_trace(reg_mask, None, align=True)
         else:
             rmask = utils.rebuild_mask(reg_mask, img_shape=img_shape)
             traces = reg_mask.copy()
     elif isinstance(reg_mask, tuple):
         rmask = utils.rebuild_mask(reg_mask, img_shape=img_shape)
-        traces = interp_trace(reg_mask)
+        traces = utils.interp_trace(reg_mask)
 
     # If fovea is known - if not, take as halfway along region
     # segmentation
@@ -98,10 +144,13 @@ def compute_measurement(reg_mask,
 
     # Work out reference point along upper boundary closest to fovea
     # and re-adjust reference point on upper boundary to align with indexing
-    top_chor, bot_chor = traces
-    rpechor_stx, chorscl_stx = int(top_chor[0, 0]), int(bot_chor[0, 0])
-    rpechor_refpt, offset_pts = nearest_coord(top_chor, ref_pt, offset, columnwise=False)
-    ref_idx = rpechor_refpt[0] - rpechor_stx
+    top_lyr, bot_lyr = traces
+    toplyr_stx, botlyr_stx = int(top_lyr[0, 0]), int(bot_lyr[0, 0])
+    toplyr_refpt, offset_pts = bscan_utils.nearest_coord(top_lyr, 
+                                                         ref_pt, 
+                                                         offset, 
+                                                         columnwise=False)
+    ref_idx = toplyr_refpt[0] - toplyr_stx
 
     # Set up list of micron distances either side of reference point, dictated by N_measures
     delta_micron = 2 * macula_rum // (N_measures - 1)
@@ -109,7 +158,11 @@ def compute_measurement(reg_mask,
     micron_measures = np.array([i * delta_micron for i in delta_i])
 
     # Locate coordinates along the upper boundary at equal spaces away from foveal pit until macula_rum
-    curve_indexes = [curve_location(top_chor, distance=d, ref_idx=ref_idx, scale=scale, verbose=False) for d in micron_measures]
+    curve_indexes = [bscan_utils.curve_location(top_lyr, 
+                                                distance=d, 
+                                                ref_idx=ref_idx, 
+                                                scale=scale, 
+                                                verbose=False) for d in micron_measures]
 
     # To catch if we cannot make measurement macula_rum either side of reference point, return -1s.
     if (None, np.nan) in curve_indexes or (np.nan, None) in curve_indexes:
@@ -142,11 +195,11 @@ def compute_measurement(reg_mask,
     # If we can, make sure that the curve_indexes at each end of the choroid are within offset+N_avgs//2 of the 
     # last index of each end of  the trace. Only relevant if measuring perpendicularly.
     if measure_type == "perpendicular":
-        rpechor_endpts = np.array([top_chor[idx, 0] for idx in curve_indexes[-1]])
-        x_endpts = top_chor[[0,-1],0]
+        toplyr_endpts = np.array([top_lyr[idx, 0] for idx in curve_indexes[-1]])
+        x_endpts = top_lyr[[0,-1],0]
         new_curve_indexes = list(curve_indexes[-1])
-        st_diff = (rpechor_endpts[0]-(offset+N_avgs//2)) - x_endpts[0]
-        en_diff = (rpechor_endpts[1]+(offset+N_avgs//2)) - x_endpts[1]
+        st_diff = (toplyr_endpts[0]-(offset+N_avgs//2)) - x_endpts[0]
+        en_diff = (toplyr_endpts[1]+(offset+N_avgs//2)) - x_endpts[1]
         st_flag = 0
         en_flag = 0
         if st_diff <= 0:
@@ -191,23 +244,23 @@ def compute_measurement(reg_mask,
                 print(msg)
 
     # Collect reference points along upper boundary - N_avgs allows us to make more robust thickness measurements by taking average value of advacent positions
-    rpechor_pts = np.array([top_chor[[idx + np.arange(-N_avgs//2, N_avgs//2+1)]] for loc in curve_indexes for idx in loc]).reshape(-1,2)[1:]
-    rpechor_pts = rpechor_pts[rpechor_pts[:,0].argsort()]
+    toplyr_pts = np.array([top_lyr[[idx + np.arange(-N_avgs//2, N_avgs//2+1)]] for loc in curve_indexes for idx in loc]).reshape(-1,2)[1:]
+    toplyr_pts = toplyr_pts[toplyr_pts[:,0].argsort()]
 
     # Collect reference points along lower boundary, given upper boundary reference points - taken A-scan wise for vertical measure_type and 
     # locally perpendicular to upper boundary reference point if perpendicular measure_type
     if measure_type == "perpendicular":
-        chorscl_pts, rpechor_pts, perps, endpoint_errors = detect_orthogonal_pts(rpechor_pts, traces, offset)
-        rpechor_pts[~endpoint_errors] = np.nan
-        chorscl_pts[~endpoint_errors] = np.nan
+        botlyr_pts, toplyr_pts, perps = bscan_utils.detect_orthogonal_coords(toplyr_pts, 
+                                                                                      traces, 
+                                                                                      offset)
     elif measure_type == "vertical":
-        st_Bx = bot_chor[0,0]
-        chorscl_pts = bot_chor[rpechor_pts[:,0]-st_Bx]
+        st_Bx = bot_lyr[0,0]
+        botlyr_pts = bot_lyr[toplyr_pts[:,0]-st_Bx]
 
     # Collect reference points along boundaries to make thickness measurement
-    chorscl_pts = chorscl_pts.reshape(N_measures, N_avgs+1, 2)
-    rpechor_pts = rpechor_pts.reshape(N_measures, N_avgs+1, 2)
-    boundary_pts = np.concatenate([rpechor_pts.reshape(*chorscl_pts.shape), chorscl_pts], axis=-1).reshape(*chorscl_pts.shape, 2)
+    botlyr_pts = botlyr_pts.reshape(N_measures, N_avgs+1, 2)
+    toplyr_pts = toplyr_pts.reshape(N_measures, N_avgs+1, 2)
+    boundary_pts = np.concatenate([toplyr_pts.reshape(*botlyr_pts.shape), botlyr_pts], axis=-1).reshape(*botlyr_pts.shape, 2)
                                        
     # Compute choroid thickness at each reference point.
     delta_xy = np.abs(np.diff(boundary_pts, axis=boundary_pts.ndim-2)) * np.array([micron_pixel_x, micron_pixel_y])
@@ -291,31 +344,51 @@ def compute_area_enclosed(traces,
                           scale=(11.49,3.87), 
                           plot=False):
     """
-    Function which, given traces and four vertex points defining the smallest irregular quadrilateral to which
-    the choroid area is enclosed in, calculate the area to square millimetres.
+    Calculate an enclosed area in square millimeters, given boundary traces 
+    and the smallest irregular quadrilateral `area_bnds_arr` containing the region of interest.
 
-    INPUTS:
-    ---------------------
-        traces (3-tuple) : Tuple storing upper and lower boundaries of trace
+    Parameters:
+    -----------
+    traces : tuple of numpy.ndarray
+        A tuple containing two arrays:
+        - `top_lyr`: Upper boundary trace (array of x, y coordinates).
+        - `bot_lyr`: Lower boundary trace (array of x, y coordinates).
 
-        area_bnds_arr (np.array) : Four vertex pixel coordnates defining the smallest irregular quadrilateral
-            which contains the choroid area of interest.
+    area_bnds_arr : numpy.ndarray
+        An array of shape (4, 2) defining the four vertex pixel coordinates of the 
+        smallest irregular quadrilateral enclosing the region of interest.
 
-        scale (3-tuple) : Tuple storing pixel_x-pixel_y-micron scalar constants.
+    scale : tuple of float, default=(11.49, 3.87)
+        A tuple specifying the scaling factors for converting pixels to microns:
+        - `micron_pixel_x`: Microns per pixel in the x-direction.
+        - `micron_pixel_y`: Microns per pixel in the y-direction.
 
-        plot (bool) : If flagged, output information to visualise area calculation, including the points contained
-            in the quadrilateral and the smallest rectangular which contains the irregular quadrilateral.
+    plot : bool, default=False
+        If `True`, additional outputs for visualising the area calculation are returned.
 
-    RETURNS:
-    --------------------
-        choroid_mm_area (float) : Choroid area in square millimetres.
+    Returns:
+    --------
+    float or tuple
+        - If `plot=False`: Returns `lyr_mm_area`, the calculated area in square millimeters.
+        - If `plot=True`: Returns a tuple containing:
+            - `lyr_mm_area`: The calculated area in square millimeters.
+            - `plot_outputs`: A list of visualization data:
+                - `keep_pixel`: Array of pixel coordinates contributing to the area.
+                - `(x_range, y_range)`: The rectangular bounds of the area.
+                - `(left_x, right_x)`: Left and right bounds derived from the irregular quadrilateral.
 
-        plot_outputs (list) : Information to plot choroid area calculation.
+    Notes:
+    ------
+    - The function computes the smallest rectangular region that fully overlaps the irregular quadrilateral 
+      enclosing the area and reduces it based on specified conditions.
+    - The area is computed by summing the pixels that satisfy the boundary constraints 
+      (upper and lower traces, and left and right bounds).
+    - The pixel area is converted to square millimeters using the provided scale.
     """
     # Extract reference points scale and traces
-    top_chor, bot_chor = traces
-    rpechor_stx, chorscl_stx = top_chor[0, 0], bot_chor[0, 0]
-    rpechor_ref, chorscl_ref = area_bnds_arr[:2], area_bnds_arr[2:]
+    top_lyr, bot_lyr = traces
+    toplyr_stx, botlyr_stx = top_lyr[0, 0], bot_lyr[0, 0]
+    toplyr_ref, botlyr_ref = area_bnds_arr[:2], area_bnds_arr[2:]
 
     # Compute microns-per-pixel and how much micron area a single 1x1 pixel represents.
     micron_pixel_x, micron_pixel_y = scale
@@ -324,24 +397,24 @@ def compute_area_enclosed(traces,
     # Work out range of x- and y-coordinates bound by the area, building the smallest rectangular
     # region which overlaps the area of interest fully
     x_range = np.arange(area_bnds_arr[:, 0].min(), area_bnds_arr[:, 0].max() + 1)
-    y_range = np.arange(min(top_chor[x_range[0] - rpechor_stx: x_range[-1] - rpechor_stx + 1, 1].min(),
+    y_range = np.arange(min(top_lyr[x_range[0] - toplyr_stx: x_range[-1] - toplyr_stx + 1, 1].min(),
                             area_bnds_arr[:, 1].min()),
-                        max(bot_chor[x_range[0] - chorscl_stx: x_range[-1] - chorscl_stx + 1, 1].max(),
+                        max(bot_lyr[x_range[0] - botlyr_stx: x_range[-1] - botlyr_stx + 1, 1].max(),
                             area_bnds_arr[:, 1].max()) + 1)
     N_y = y_range.shape[0]
 
     # This defines the left-most perpendicular line and right-most perpendicular line
     # for comparing with coordinates from rectangular region
-    left_m, left_c = construct_line(rpechor_ref[0], chorscl_ref[0])
-    right_m, right_c = construct_line(rpechor_ref[1], chorscl_ref[1])
+    left_m, left_c = bscan_utils.construct_line(toplyr_ref[0], botlyr_ref[0])
+    right_m, right_c = bscan_utils.construct_line(toplyr_ref[1], botlyr_ref[1])
     if left_m != np.inf:
         left_x = ((y_range - left_c) / left_m).astype(np.int64)
     else:
-        left_x = np.array(N_y * [rpechor_ref[0][0]])
+        left_x = np.array(N_y * [toplyr_ref[0][0]])
     if right_m != np.inf:
         right_x = ((y_range - right_c) / right_m).astype(np.int64)
     else:
-        right_x = np.array(N_y * [rpechor_ref[1][0]])
+        right_x = np.array(N_y * [toplyr_ref[1][0]])
     # The rectangular region above needs reduced to only containing coordinates which lie
     # above the Chor-Sclera boundary, below the RPE-Choroid boundary, to the right of the
     # left-most perpendicular line and to the left of the right-most perpendicular line.
@@ -354,7 +427,7 @@ def compute_area_enclosed(traces,
         col = np.concatenate([x * np.ones(N_y)[:, np.newaxis], y_range[:, np.newaxis]], axis=1)
 
         # Define upper and lower bounds at this x-position
-        top, bot = top_chor[x - rpechor_stx], bot_chor[x - chorscl_stx]
+        top, bot = top_lyr[x - toplyr_stx], bot_lyr[x - botlyr_stx]
 
         # Check all 4 conditions and make sure they are all satisfied
         cond_t = col[:, 1] >= top[1]
@@ -368,14 +441,14 @@ def compute_area_enclosed(traces,
     keep_pixel = np.concatenate(keep_pixel)
 
     # Calculate area (in square mm)
-    choroid_pixel_area = keep_pixel.shape[0]
-    choroid_mm_area = np.round(1e-6 * micron_area * choroid_pixel_area, 6)
+    lyr_pixel_area = keep_pixel.shape[0]
+    lyr_mm_area = np.round(1e-6 * micron_area * lyr_pixel_area, 6)
 
     # If plotting, reutrn pixels used to compute  area
     if plot:
         plot_outputs = [keep_pixel, (x_range, y_range), (left_x, right_x)]
-        outputs = [choroid_mm_area, plot_outputs]
+        outputs = [lyr_mm_area, plot_outputs]
     else:
-        outputs = choroid_mm_area
+        outputs = lyr_mm_area
 
     return outputs

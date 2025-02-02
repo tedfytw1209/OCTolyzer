@@ -18,15 +18,72 @@ from octolyzer.measure.bscan.thickness_maps import grid
 from octolyzer.measure.slo import tortuosity_measures
 from octolyzer.segment.octseg import choroidalyzer_inference
 
+# Taken directly from EyePy volreader.py 
+# (https://github.com/MedVisBonn/eyepy/blob/master/src/eyepy/io/he/vol_reader.py)
+# PR1 and EZ map to 14 and PR2 and IZ map to 15. Hence both names can be used
+# to access the same data
+SEG_MAPPING = {
+    'ILM': 0,
+    'BM': 1,
+    'RNFL': 2,
+    'GCL': 3,
+    'IPL': 4,
+    'INL': 5,
+    'OPL': 6,
+    'ONL': 7,
+    'ELM': 8,
+    'IOS': 9,
+    'OPT': 10,
+    'CHO': 11,
+    'VIT': 12,
+    'ANT': 13,
+    'PR1': 14,
+    'PR2': 15,
+    'RPE': 16,
+}
+
 
 def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose=True):
     """
-    Load and extract pixel and meta data from .vol file
+    Loads and formats OCT+SLO data from a .vol file, extracting pixel data, metadata, and retinal layers.
 
-    Returns OCT B-scan data, all relevant metadata and three
-    versions of the corresponding IR-SLO image: A pain version,
-    one with the fovea-centred B-scan acquisition location superimposed,
-    and another with all B-scan acquisition locations superimposed.
+    Parameters:
+    -----------
+    vol_path : str
+        Path to the .vol file.
+        
+    preprocess : bool, default=False
+        If True, preprocesses B-scans to compensate for superficial retinal vessel shadows and 
+        improves choroid visualisation.
+        
+    custom_maps : list, default=[]
+        List of custom retinal layer maps to be generated if inner retinal layers are detected.
+        
+    logging : list, default=[]
+        List to append logging messages detailing actions and any issues during processing.
+        
+    verbose : bool, default=True
+        If True, prints logging messages to the console.
+
+    Returns:
+    --------
+    bscan_data : np.ndarray
+        Array containing processed B-scan data.
+        
+    metadata : dict
+        Comprehensive and detailed metadata about the scan, including resolution, type, and eye information.
+        
+    slo_images : tuple
+        Tuple of SLO images including:
+        - Raw SLO image
+        - SLO with all B-scan acquisition locations superimposed
+        - SLO with fovea-centered B-scan acquisition location superimposed.
+        
+    layer_pairwise : dict
+        Dictionary containing retinal layer segmentations for valid layer pairs.
+        
+    logging : list
+        Updated logging list with detailed processing and diagnostic messages.
     """
     fname = os.path.split(vol_path)[1]
     msg = f"Reading file {fname}..."
@@ -36,14 +93,17 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     
     # Catch whether .vol file is a peripapillary or macular scan. Other locations, i.e. radial "star-shaped" scans
     # currently not supported.
+    scan_type = "Macular"
+    radial = False
+    eyepy_import = False
     try: 
         voldata = eyepy.import_heyex_vol(vol_path)
-        scan_type = "Macular"
+        eyepy_import = True
 
         # pixel data
         bscan_data = voldata.data / 255
         N_scans, M, N = bscan_data.shape
-        fovea_slice_num = N_scans // 2 + 1
+        fovea_slice_num = N_scans // 2
         
     except ValueError as msg:
         if len(msg.args) > 0 and msg.args[0] == "The EyeVolume object does not support scan pattern 2 (one Circular B-scan).":
@@ -55,6 +115,17 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
             bscan_data = (eyepy_utils.from_vol_intensity(pixel_data.copy()) / 255).reshape(1,*pixel_data.shape)
             N_scans, M, N = bscan_data.shape
             fovea_slice_num = None
+
+        elif len(msg.args) > 0 and msg.args[0] == "The EyeVolume object does not support scan pattern 5 (Radial scan - star pattern).":
+            voldata = vol_reader.HeVolReader(vol_path)
+            radial = True
+
+            # pixel data
+            pixel_data = [arr.data for arr in voldata.parsed_file.bscans]
+            bscan_data = np.asarray([eyepy_utils.from_vol_intensity(arr.copy()) / 255 for arr in pixel_data])
+            N_scans, M, N = bscan_data.shape
+            fovea_slice_num = N_scans // 2
+            
         else:
             logging.append(msg)
             raise msg
@@ -72,7 +143,7 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     scale_z, scale_x, scale_y = vol_metadata["scale_z"], vol_metadata["scale_x"], vol_metadata["scale_y"]
     bscan_meta = vol_metadata["bscan_meta"]
     
-    # Detect type of scan
+    # Detect scan pattern
     if scan_type == "Peripapillary":
         bscan_type = scan_type
         msg = f"Loaded a peripapillary (circular) B-scan."
@@ -80,8 +151,12 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
         if verbose:
             print(msg)
     elif scan_type == "Macular" and scale_z != 0:
-        bscan_type = "Ppole"
-        msg = f"Loaded a posterior pole scan with {N_scans} B-scans."
+        if radial == 0:
+            bscan_type = "Ppole"
+            msg = f"Loaded a posterior pole scan with {N_scans} B-scans."
+        else:
+            bscan_type = "Radial"
+            msg = f"Loaded a radial scan with {N_scans} B-scans."
         logging.append(msg)
         if verbose:
             print(msg)
@@ -113,14 +188,14 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
             print(msg)
 
     # retinal layers
-    retinal_layers = voldata.layers
-    N_rlayers = len(retinal_layers)
+    retinal_layer_raw = voldata.layers
+    N_rlayers = len(retinal_layer_raw)
     if N_rlayers == 2:
-        msg = ".vol file only has inner and outer retinal layer segmentations."
-    elif N_rlayers == 3:
-        msg = "peripapillary .vol file contains ILM, RNFL and BM layer segmentations."
-    else:
+        msg = ".vol file only has ILM and BM layer segmentations."
+    elif N_rlayers == 17:
         msg = ".vol file contains all retinal layer segmentations."
+    else:
+        msg = ".vol file contains ILM and BM, but fewer than all inner retinal layer segmentations."
     logging.append(msg)
     if verbose:
         print(msg)
@@ -131,37 +206,49 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
         logging.append(msg)
         if verbose:
             print(msg)
-        layer_keys = list()
         x_grid_all = np.repeat(np.arange(N).reshape(-1,1), N_scans, axis=1).T
-
-        # Dealing with retinal layer segmentations from  peripapillary scans
-        if bscan_type == "Peripapillary":
-            layer_keys = ["ILM", "BM", "RNFL"]
-            N_rlayers = len(layer_keys)
-            layer_key_pairwise = ["ILM_RNFL", "ILM_BM", "RNFL_BM"]
-            retinal_layers = {key:val for key,val in zip(layer_keys, retinal_layers)}
-            #return retinal_layers
-
-        # Dealing with retinal layer segmentations from macular scans
-        else:
-            retinal_layers = {key:val.data for key,val in retinal_layers.items()}
-            for key in retinal_layers.keys():
-                if not np.all(np.isnan(retinal_layers[key])):
-                    layer_keys.append(key) 
-            layer_keys = layer_keys[:1] + layer_keys[2:] + ["BM"]
-            N_rlayers = len(layer_keys)
-            layer_key_pairwise = [f"{key1}_{key2}" for key1,key2 in zip(layer_keys[:-1], layer_keys[1:])]
         
-            # Add custom thickness maps
-            # by default we will always provide whole retina, inner and outer retinal layers, removing any duplicates
-            custom_maps += ["ILM_ELM", "ELM_BM"]
+        # Dealing with retinal layer segmentations using primitive loader from EyePy
+        if not eyepy_import:
+            
+            # Collect retinal layer segmentations based on .vol mapping from EyePy
+            retinal_layers = {}
+            for name, i in SEG_MAPPING.items():
+                msg = None
+                if i >= retinal_layer_raw.shape[0]:
+                    msg = 'The volume contains less layers than expected. The naming might not be correct.'
+                    break
+                retinal_layers[name] = retinal_layer_raw[i]
+        
+        # Dealing with retinal layer segmentations loaded and organised from EyePy
+        else:
+            retinal_layers = {name:val.data for name,val in retinal_layer_raw.items()}
+                
+        # Create pairwise retinal layers
+        layer_keys = []
+        for key in retinal_layers.keys():
+            if not np.all(np.isnan(retinal_layers[key])):
+                layer_keys.append(key) 
+        layer_keys = layer_keys[:1] + layer_keys[2:] + ["BM"]
+        N_rlayers = len(layer_keys)
+        layer_key_pairwise = [f"{key1}_{key2}" for key1,key2 in zip(layer_keys[:-1], layer_keys[1:])]
+        
+        # By default we always provide the whole retina
+        layer_key_pairwise.append("ILM_BM")
+    
+        # If macular scan, allow custom retinal layers to be created
+        if bscan_type != 'Peripapillary':
+    
+            # If ELM traces exist, then we will provide measurements for inner and outer retina. 
+            if 'ELM' in layer_keys:
+                custom_maps += ["ILM_ELM", "ELM_BM"]
             custom_maps = list(set(custom_maps))
-            if N_rlayers > 2:
-                layer_key_pairwise.append("ILM_BM")
-                if len(custom_maps) > 0:
-                    for key_pair in custom_maps:
-                        layer_key_pairwise.append(key_pair)
-
+        
+            # Add custom retinal layers if they exist
+            if N_rlayers > 2 and len(custom_maps) > 0:
+                for key_pair in custom_maps:
+                    layer_key_pairwise.append(key_pair)
+    
         # Collect retinal layer segmentations
         layer_pairwise = {}
         for key in layer_key_pairwise:
@@ -172,11 +259,11 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
                                 retinal_layers[key2][...,np.newaxis]], axis=-1)
             lyr12_xy_all = np.concatenate([lyr1[:,np.newaxis], lyr2[:,np.newaxis]], axis=1)
             layer_pairwise[key] = [remove_nans(tr) for tr in lyr12_xy_all]   
-
+    
         # Check to make sure all B-scans have inner retinal layer segmentations. If not,
         # only return ILM and BM layers - this does not apply for peripapillary scans, where
         # only three layers are segmented.
-        if N_rlayers > 2 and bscan_type != "Peripapillary":    
+        if N_rlayers > 2 and bscan_type == "Ppole":    
             check_layer = "ILM_RNFL"
             check_segs = [trace.shape[1]==0 for trace in layer_pairwise[check_layer]]
             N_missing = int(np.sum(check_segs))
@@ -187,8 +274,8 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
                     print(msg)    
             if N_missing > N_scans//2:
                 msg = f"""Over half of the B-scans are missing inner retinal layer segmentations.
-    Falling back to default state of only analysing whole retina, and removing inner retinal layers in output.
-    Please segment inner retinal layers for remaining scans to analyse all retinal layers."""
+        Falling back to default state of only analysing whole retina, and removing inner retinal layers in output.
+        Please segment inner retinal layers for remaining scans to analyse all retinal layers."""
                 logging.append(msg)
                 if verbose:
                     print(msg)
@@ -200,6 +287,7 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
         logging.append(msg)
         if verbose:
             print(msg)
+    
     except Exception as e:
         message = f"An exception of type {type(e).__name__} occurred. Error description:\n{e}"
         tell_user = "Unexpected error locating retinal layer segmentations. Please check B-scan for quality or metadata. Ignoring retinal layers."
@@ -224,7 +312,7 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
         en = m["end_pos"]
         point = np.array([st, en])
         all_mm_points.append(point)
-
+    
     # Only relevant for Ppole data
     quality_mu = np.mean(all_quality)
     quality_sig = np.std(all_quality)
@@ -233,57 +321,89 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     all_px_points = []
     for point in all_mm_points:
         all_px_points.append(slo_N * point / slo_metadict["field_of_view_mm"])
+    all_px_points = np.array(all_px_points)
 
-    # return all_px_points
+    # Python indexing versus .vol all_px_points indexing
+    all_px_points[:,1,0] -= 1
 
-    # Draw the acquisition locations onto the SLO
-    slo_at_fovea = np.concatenate(3*[slo[...,np.newaxis]], axis=-1)
-    slo_acq = slo_at_fovea.copy()
-
+    # Create a (potentially) larger copy of the SLO 
+    # to contain all acquisition locations
+    slo_acq = np.concatenate(3*[slo[...,np.newaxis]], axis=-1)
+    slo_acq_fixed = slo_acq.copy()
+    slo_minmax_x = all_px_points[:,:,0].min(), all_px_points[:,:,0].max()
+    slo_minmax_y = all_px_points[:,:,1].min(), all_px_points[:,:,1].max()
+    
+    # Work out padding dimensions to ensure the entire fovea-centred acquisition line fits onto slo_fov_max
+    pad_y = int(np.ceil(abs(min(0,slo_minmax_y[0])))), int(np.ceil(abs(max(0,slo_minmax_y[1]-slo_N))))
+    pad_x = int(np.ceil(abs(min(0,slo_minmax_x[0])))), int(np.ceil(abs(max(0,slo_minmax_x[1]-slo_N))))
+    slo_acq = np.pad(slo_acq, (pad_y, pad_x, (0,0)), mode='constant')
+    
     # For peripapillary scans, we draw a circular ROI
     if bscan_type == "Peripapillary":
         peripapillary_coords = all_px_points[0].astype(int)
         
-        if eye == "OD":
-            OD_center, OD_edge = peripapillary_coords[peripapillary_coords[:,0].argsort()]
-        elif eye == "OS":
-            OD_edge, OD_center = peripapillary_coords[peripapillary_coords[:,0].argsort()]
-
+        OD_edge, OD_center = peripapillary_coords
         circular_radius = np.abs(OD_center[0] - OD_edge[0])
-        circular_mask = grid.create_circular_mask(img_shape=(1536,1536), 
+        circular_mask = grid.create_circular_mask(img_shape=(N,N), 
                                      center=OD_center, 
                                      radius=circular_radius)
         circular_bnd_mask = segmentation.find_boundaries(circular_mask)
         slo_acq[circular_bnd_mask,:] = 0
         slo_acq[circular_bnd_mask,1] = 1
-        slo_at_fovea = slo_acq.copy()
         slo_metadict["stxy_coord"] = f"{OD_edge[0]},{OD_edge[1]}"
         slo_metadict["acquisition_radius_px"] = circular_radius
         slo_metadict["acquisition_radius_mm"] = np.round(circular_radius*slo_metadict["scale_x"],2)
         slo_metadict["acquisition_optic_disc_center_x"] = OD_center[0]
         slo_metadict["acquisition_optic_disc_center_y"] = OD_center[1]
 
+    # For macular scans, we generate a line for each B-scan location and 
+    # superimpose the acquisition line onto a copy of the en face SLO.
     else:
-        # For macular scans, we generate line for each B-scan location and 
-        # superimpose acquisition line onto copied SLO. Create one with all
-        #  acquisition lines, and one with only
-        # the fovea. slo_at_fov only used when N_scans > 1
+
+        # Colour palette for acquisition lines, helpful for Ppole map registration onto SLO
+        # Use green for single-line scans
+        if N_scans == 1:
+            acq_palette = [np.array([0,1,0])]
+
+        # Use a spectrum of colour for Ppole/radial scans 
+        else:
+            acq_palette = np.array(plt.get_cmap("nipy_spectral")(np.linspace(0.1, 0.9, N_scans)))[...,:-1]
+
+        # Loop across acquisition line endpoints, draw lines on SLO
         for idx, point in enumerate(all_px_points):
-            x_idx, y_idx = [[1,0], [0,1]][bscan_type != "V-line"]
-            X, y = point[:,x_idx].reshape(-1,1), point[:,y_idx]
+            loc_colour = acq_palette[idx] #np.array([0,1,0])
+            if bscan_type == 'Radial':
+                x_idx, y_idx = [[1,0], [0,1]][idx == N_scans//2]  
+            else:
+                x_idx, y_idx = [[1,0], [0,1]][bscan_type != "V-line"]
+            X, y = point[:,x_idx].reshape(-1,1).astype(int), point[:,y_idx].astype(int)
             linmod = LinearRegression().fit(X, y)
             x_grid = np.linspace(X[0,0], X[1,0], 800).astype(int)
-            x_grid = x_grid[(x_grid < slo_N) & (x_grid >= 0)]
             y_grid = linmod.predict(x_grid.reshape(-1,1)).astype(int)
-            x_grid = x_grid[y_grid < slo_N]
-            y_grid = y_grid[y_grid < slo_N]
             for (x,y) in zip(x_grid, y_grid):
-                x_idx, y_idx = [[y,x], [x,y]][bscan_type != "V-line"]
-                slo_acq[y_idx, x_idx, :] = 0
-                slo_acq[y_idx, x_idx, 1] = 1
-                if (idx+1) == fovea_slice_num:
-                    slo_at_fovea[y_idx, x_idx, :] = 0
-                    slo_at_fovea[y_idx, x_idx, 1] = 1
+                if bscan_type == 'Radial':
+                    x_idx, y_idx = [[x,y], [y,x]][idx == N_scans//2]  
+                else:
+                    x_idx, y_idx = [[y,x], [x,y]][bscan_type != "V-line"]
+
+                # Overlay acquisition locations
+                if (0 <= x_idx < slo_N) & (0 <= y_idx < slo_N):
+                    slo_acq_fixed[y_idx, x_idx] = loc_colour
+                slo_acq[pad_y[0]+y_idx, pad_x[0]+x_idx] = loc_colour
+                    
+    # Work out region of interest (ROI) captured by B-scan, helps determine maximum ROI to measure
+    if scan_type != "Peripapillary":
+
+        # For macular scans, use fovea-centred scan endpoints to work out acquistion ROI
+        ROI_pts = all_px_points[fovea_slice_num]
+        ROI_xy = np.abs(np.diff(ROI_pts, axis=0)) * np.array([scale_x, scale_x])
+        ROI_mm = np.sqrt(np.square(ROI_xy).sum())
+
+    else:
+        # For peripapillary scans, use circumference of circular acquisition location using
+        # OD centre and acquisition circular edge (forming a radius)
+        ROI_mm = 2*np.pi*np.abs(np.diff(all_mm_points[0][:,0]))[0]
+                    
     # Create DataFrame of metadata
     bscan_metadict = {}
     bscan_metadict["Filename"] = fname
@@ -297,6 +417,7 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     bscan_metadict["bscan_scale_z"] = 1e3*scale_z
     bscan_metadict["bscan_scale_x"] = 1e3*scale_x
     bscan_metadict["bscan_scale_y"] = 1e3*scale_y
+    bscan_metadict["bscan_ROI_mm"] = ROI_mm
     bscan_metadict["scale_units"] = "microns_per_pixel"
     bscan_metadict["avg_quality"] = quality_mu
     bscan_metadict["retinal_layers_N"] = N_rlayers
@@ -306,8 +427,8 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     for key in ["laterality", "scale_x", "scale_y", "scale_unit"]:
         del slo_metadict[key]
     slo_metadict["location"] = scan_type.lower()
-    slo_metadict["field_size_degrees"] = slo_metadict.pop("field_size")
     slo_metadict["slo_modality"] = slo_metadict.pop("modality")
+    slo_metadict["field_size_degrees"] = slo_metadict.pop("field_size")
         
     # Combine metadata and return with data
     metadata = {**bscan_metadict, **slo_metadict}
@@ -315,15 +436,48 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     logging.append(msg)
     if verbose:
         print(msg)
+
+    # collect SLO output
+    slo_output = (slo, slo_acq_fixed, slo_acq, (pad_x,pad_y))
         
-    return bscan_data, metadata, (slo, slo_acq, slo_at_fovea), layer_pairwise, logging
+    return bscan_data, metadata, slo_output, layer_pairwise, logging
 
 
 def load_img(path, ycutoff=0, xcutoff=0, pad=False, pad_factor=32):
     '''
-    Helper function to load and normalize an image, and optionally
+    Helper function to load and normalise an image, and optionally
     pad to have dimensions divisible by pad_factor
-    '''
+    '''    """
+    Load and normalize an image, with optional cropping and padding.
+
+    Parameters:
+    -----------
+    path : str
+        Path to the image file to load.
+
+    ycutoff : int, default=0
+        Number of pixels to crop from the top of the image along the vertical axis.
+
+    xcutoff : int, default=0
+        Number of pixels to crop from the left of the image along the horizontal axis.
+
+    pad : bool, default=False
+        Whether to pad the image dimensions to be divisible by `pad_factor`.
+
+    pad_factor : int, default=32
+        Factor by which the padded image dimensions should be divisible, if `pad=True`.
+
+    Returns:
+    --------
+    numpy.ndarray
+        Loaded and normalized image. If `pad=True`, the dimensions are padded accordingly.
+
+    Example:
+    --------
+    ```python
+    img = load_img("example.png", ycutoff=10, xcutoff=20, pad=True, pad_factor=16)
+    ```
+    """
     img = np.array(Image.open(path))[ycutoff:, xcutoff:]/255.0
     if pad:
         ndim = img.ndim
@@ -340,15 +494,51 @@ def load_img(path, ycutoff=0, xcutoff=0, pad=False, pad_factor=32):
         return img
 
 
-# Plotting data
-
 
 def plot_img(img_data, traces=None, cmap=None, fovea=None, save_path=None, 
              fname=None, sidebyside=False, rnfl=False, close=False, 
              trace_kwds={'c':"r", 'linestyle':"--", 'linewidth':2}):
-    '''
-    Helper function to plot the result - plot the image, traces, colourmap, etc.
-    '''
+    """
+    Helper function to visualise an OCT B-scan with optional overlays like layer segmentations,
+    color maps, and markers.
+
+    Parameters:
+    -----------
+    img_data : numpy.ndarray
+        Input image data to display.
+
+    traces : numpy.ndarray or list of numpy.ndarray, optional
+        Trace data to overlay on the image. Can be a single trace or a pair of traces.
+
+    cmap : numpy.ndarray, optional
+        Color map data to overlay on the image. Should be the same image dimensions as `img_data`.
+
+    fovea : tuple of (int, int), optional
+        Pixel coordinates of the fovea to mark on the image.
+
+    save_path : str, optional
+        Directory path to save the image.
+
+    fname : str, optional
+        File name for saving the image. If `None`, the image is not saved.
+
+    sidebyside : bool, default=False
+        Whether to display the image and its overlay side by side.
+
+    rnfl : bool, default=False
+        If `True`, adjust figure size for peripapillary B-scan visualisation.
+
+    close : bool, default=False
+        If `True`, close the figure after plotting. If `False`, return the figure object.
+
+    trace_kwds : dict, optional
+        Keyword arguments for trace styling (e.g., color, linestyle, linewidth).
+
+    Returns:
+    --------
+    matplotlib.figure.Figure or None
+        The figure object if `close` is `False`, otherwise `None`.
+    """
     img = img_data.copy().astype(np.float64)
     img -= img.min()
     img /= img.max()
@@ -411,9 +601,29 @@ def plot_img(img_data, traces=None, cmap=None, fovea=None, save_path=None,
 
 
 def generate_imgmask(mask, thresh=None, cmap=0):
-    '''
-    Given a prediction mask Returns a plottable mask
-    '''
+    """
+    Generate a plottable RGBA mask from a binary or probabilistic mask.
+
+    Parameters:
+    -----------
+    mask : numpy.ndarray
+        Input mask, typically binary or probabilistic.
+
+    thresh : float, optional
+        Threshold for binarising the mask. Values below the threshold are set to 0, others to 1.
+
+    cmap : int or None, default=0
+        Index of the RGB channel to colorise. If `None`, all channels are used equally.
+
+    Returns:
+    --------
+    numpy.ndarray
+        Plottable RGBA mask with transparency for non-mask regions.
+
+    Notes:
+    ------
+    - The function creates an RGBA image, where the alpha channel corresponds to the mask's binary values.
+    """
     # Threshold
     pred_mask = mask.copy()
     if thresh is not None:
@@ -433,9 +643,20 @@ def generate_imgmask(mask, thresh=None, cmap=0):
     return pred_mask_plot
 
 
-# Post-processing segmentation
-
 def remove_nans(trace):
+    """
+    Remove NaN values from a trace.
+
+    Parameters:
+    -----------
+    trace : numpy.ndarray
+        Input trace data, either 2D or 3D.
+
+    Returns:
+    --------
+    numpy.ndarray
+        Trace with NaN values removed.
+    """
     if trace.ndim > 2:
         return trace[:,~np.isnan(trace[...,1]).any(axis=0)].astype(np.int64)
     else:
@@ -443,10 +664,23 @@ def remove_nans(trace):
 
 
 def extract_bounds(mask):
-    '''
-    Given a binary mask, return the top and bottom boundaries, 
-    assuming the segmentation is fully-connected.
-    '''
+    """
+    Extract the top and bottom boundaries of a binary mask.
+
+    Parameters:
+    -----------
+    mask : numpy.ndarray
+        Binary mask with a connected region of interest.
+
+    Returns:
+    --------
+    tuple of (numpy.ndarray, numpy.ndarray)
+        Top and bottom boundaries of the mask as arrays of coordinates.
+
+    Notes:
+    ------
+    - Assumes the mask is fully connected and can be sorted along the horizontal axis.
+    """
     # Stack of indexes where mask has predicted 1
     where_ones = np.vstack(np.where(mask.T)).T
     
@@ -463,9 +697,19 @@ def extract_bounds(mask):
 
 
 def select_largest_mask(binmask):
-    '''
-    Enforce connectivity of region segmentation
-    '''
+    """
+    Retain only the largest connected region in a binary mask.
+
+    Parameters:
+    -----------
+    binmask : numpy.ndarray
+        Binary mask with (potentially) multiple connected regions.
+
+    Returns:
+    --------
+    numpy.ndarray
+        Binary mask with only the largest connected region retained.
+    """
     # Look at which of the region has the largest area, and set all other regions to 0
     labels_mask = measure.label(binmask)                       
     regions = measure.regionprops(labels_mask)
@@ -479,12 +723,26 @@ def select_largest_mask(binmask):
 
 
 def interp_trace(traces, align=True):
-    '''
-    Quick helper function to make sure every trace is evaluated 
-    across every x-value that it's length covers.
-    '''
+    """
+    Interpolate traces to ensure continuity along the x-axis.
+
+    Parameters:
+    -----------
+    traces : list of numpy.ndarray
+        List of traces, each containing x and y coordinates.
+
+    align : bool, default=True
+        Whether to align traces to a common x-range.
+
+    Returns:
+    --------
+    tuple of numpy.ndarray
+        Interpolated traces.
+    """
+    # Interpolate traces
     new_traces = []
-    for i in range(2):
+    N = len(traces)
+    for i in range(N):
         tr = traces[i]  
         min_x, max_x = (tr[:,0].min(), tr[:,0].max())
         x_grid = np.arange(min_x, max_x)
@@ -508,33 +766,68 @@ def interp_trace(traces, align=True):
 
 
 def smart_crop(traces, check_idx=20, ythresh=1, align=True):
-    '''
-    Instead of defining an offset to check for and crop in utils.crop_trace(), which
-    may depend on the size of the choroid itself, this checks to make sure that adjacent
-    changes in the y-values of each trace are small, defined by ythresh.
-    '''
+    """
+    Crop traces to remove discontinuities based on local y-value changes at the end of
+    traces.
+
+    Parameters:
+    -----------
+    traces : list of numpy.ndarray
+        List of traces, each containing x and y coordinates.
+
+    check_idx : int, default=20
+        Number of points to check at the start and end of each trace.
+
+    ythresh : float, default=1
+        Threshold for discontinuity detection in y-values.
+
+    align : bool, default=True
+        Whether to align cropped traces to a common x-range.
+
+    Returns:
+    --------
+    tuple of numpy.ndarray
+        Cropped and aligned traces.
+    """
     cropped_tr = []
     for i in range(2):
-        _chor = traces[i]
-        ends_l = np.argwhere(np.abs(np.diff(_chor[:check_idx,1])) > ythresh)
-        ends_r = np.argwhere(np.abs(np.diff(_chor[-check_idx:,1])) > ythresh)
+        lyr = traces[i]
+        ends_l = np.argwhere(np.abs(np.diff(lyr[:check_idx,1])) > ythresh)
+        ends_r = np.argwhere(np.abs(np.diff(lyr[-check_idx:,1])) > ythresh)
         if ends_r.shape[0] != 0:
-            _chor = _chor[:-(check_idx-ends_r.min())]
+            lyr = lyr[:-(check_idx-ends_r.min())]
         if ends_l.shape[0] != 0:
-            _chor = _chor[ends_l.max()+1:]
-        cropped_tr.append(_chor)
+            lyr = lyr[ends_l.max()+1:]
+        cropped_tr.append(lyr)
 
     return interp_trace(cropped_tr, align=align)
 
 
 
 def get_trace(pred_mask, threshold=0.5, align=False):
-    '''
-    Helper function to extract traces from a prediction mask. 
-    This thresholds the mask, selects the largest mask, extracts upper
-    and lower bounds of the mask and crops any endpoints which aren't continuous.
-    '''
-    binmask = (pred_mask > threshold).astype(int)
+    """
+    Extract top and bottom traces from a prediction mask.
+
+    The function thresholds the mask, selects the largest connected region, extracts boundaries, and crops discontinuities.
+
+    Parameters:
+    -----------
+    pred_mask : numpy.ndarray
+        Prediction mask, typically probabilistic.
+
+    threshold : float, default=0.5
+        Threshold for binarizing the mask.
+
+    align : bool, default=False
+        Whether to align the traces to a common x-range.
+
+    Returns:
+    --------
+    tuple of numpy.ndarray
+        Top and bottom traces extracted from the mask.
+    """
+    if threshold is not None:
+        binmask = (pred_mask > threshold).astype(int)
     binmask = select_largest_mask(binmask)
     traces = extract_bounds(binmask)
     traces = smart_crop(traces, align=align)
@@ -543,92 +836,74 @@ def get_trace(pred_mask, threshold=0.5, align=False):
 
 
 def rebuild_mask(traces, img_shape=None):
-    '''
-    Rebuild binary mask from choroid traces
-    '''
-    # Work out extremal coordinates of traces
-    top_chor, bot_chor = interp_trace(traces)
-    common_st_idx = np.maximum(top_chor[0,0], bot_chor[0,0])
-    common_en_idx = np.minimum(top_chor[-1,0], bot_chor[-1,0])
-    top_idx = top_chor[:,1].min()
-    bot_idx = bot_chor[:,1].max()
+    """
+    Rebuild a binary mask from upper and lower boundaries. The mask is created by filling in the region between the top and bottom traces.
 
+    Parameters:
+    -----------
+    traces : tuple of numpy.ndarray
+        Top and bottom traces.
+
+    img_shape : tuple of (int, int), optional
+        Shape of the output mask. If `None`, the mask size is inferred from traces.
+
+    Returns:
+    --------
+    numpy.ndarray
+        Binary mask reconstructed from the traces.
+    """
+    # Work out extremal coordinates of traces
+    top_lyr, bot_lyr = interp_trace(traces)
+    common_st_idx = np.maximum(top_lyr[0,0], bot_lyr[0,0])
+    common_en_idx = np.minimum(top_lyr[-1,0], bot_lyr[-1,0])
+    top_idx = top_lyr[:,1].min()
+    bot_idx = bot_lyr[:,1].max()
+
+    # Initialise binary mask
     if img_shape is not None:
         binmask = np.zeros(img_shape)
     else:
         binmask = np.zeros((bot_idx+100, common_en_idx+100))
 
+    # Fill in region between upper and lower boundaries
     for i in range(common_st_idx, common_en_idx):
-        top_i = top_chor[i-common_st_idx,1]
-        bot_i = bot_chor[i-common_st_idx,1]
+        top_i = top_lyr[i-common_st_idx,1]
+        bot_i = bot_lyr[i-common_st_idx,1]
         binmask[top_i:bot_i,i] = 1
 
     return binmask
 
 
 
-def visualise_vessels(masks, vessels_binmap):
-    '''
-    Using the binary vessel map, create 4d colour map which colours indvidual vessels and adds a fourth map of 
-    transparency for superimposing onto a figure.
+def normalise(img, minmax_val=(0,1), astyp=np.float64):
+    """
+    Normalise an image to a specified range.
 
-    INPUTS:
-    -----------------
-        masks (ndarray) : Array of binary maps of individual vessels.
+    Parameters:
+    -----------
+    img : numpy.ndarray
+        Input image to be normalised. The image can be of any numeric data type.
 
-        vessels_binmap (2darray) : Binary map storing all vessels.
-    '''
-    img_shape = vessels_binmap.shape
-    vessel_colourmap = np.zeros((*img_shape, 4))
-    binmap3D = np.zeros((*img_shape, 3))
-    for j, binmap in enumerate(masks):
-        np.random.seed(j)
-        color = (np.random.choice(range(256), size=3)/255)
-        binmap3D += np.concatenate([c * binmap[:,:,np.newaxis] for c in color], axis=-1)
-    vessel_colourmap[:,:,:-1] = binmap3D
-    vessel_colourmap[:,:,-1] = vessels_binmap
+    minmax_val : tuple of (float, float), optional, default=(0, 1)
+        The minimum and maximum values to which the image will be normalised.
 
-    return vessel_colourmap
+    astyp : numpy.dtype, optional, default=np.float64
+        Data type for the normalised image output.
 
+    Returns:
+    --------
+    numpy.ndarray
+        Normalised image scaled to the specified range (`minmax_val`) and converted to the specified data type (`astyp`).
 
-def generate_vesselmask(binmap):
-    '''
-    Using skimage.measure, extract individual vessel masks and other
-    interesting metrics
-    '''
-    labels_mask = measure.label(binmap.astype(int))         
-    regions = measure.regionprops(labels_mask)
-    vessel_masks = []
-    for r in regions:
-        sing_vessel_mask = np.zeros_like(binmap)
-        v_coords = r.coords
-        sing_vessel_mask[v_coords[:,0], v_coords[:,1]] = 1
-        vessel_masks.append(sing_vessel_mask)
-    cmap = visualise_vessels(vessel_masks, binmap)
-
-    return cmap
-
-
-
-
-def normalise(img, 
-              minmax_val=(0,1), 
-              astyp=np.float64):
-    '''
-    Normalise image between minmax_val.
-
-    INPUTS:
-    ----------------
-        img (np.array, dtype=?) : Input image of some data type.
-
-        minmax_val (tuple) : Tuple storing minimum and maximum value to normalise image with.
-
-        astyp (data type) : What data type to store normalised image.
-    
-    RETURNS:
-    ----------------
-        img (np.array, dtype=astyp) : Normalised image in minmax_val.
-    '''
+    Example:
+    --------
+    >>> import numpy as np
+    >>> img = np.array([[10, 20, 30], [40, 50, 60]], dtype=np.uint8)
+    >>> normalised_img = normalise(img, minmax_val=(0, 255), astyp=np.uint8)
+    >>> print(normalised_img)
+    [[  0  51 102]
+     [153 204 255]]
+    """
     # Extract minimum and maximum values
     min_val, max_val = minmax_val
 
@@ -646,9 +921,33 @@ def normalise(img,
     return img.astype(astyp)
 
 
+
 def normalise_brightness(img, target_mean=0.2):
     """
-    Gamma transform image to improve brightness
+    Adjusts the brightness of an image by applying a gamma transformation to reach a target mean brightness.
+
+    Parameters:
+    -----------
+    img : numpy.ndarray
+        The input image array, which can be of any numeric data type.
+
+    target_mean : float, default=0.2
+        The desired target mean brightness of the image after adjustment.
+
+    Returns:
+    --------
+    numpy.ndarray
+        The gamma-transformed and normalized image with improved brightness/contrast.
+
+    Notes:
+    ------
+    - The function calculates a gamma correction factor based on the ratio of the target mean brightness 
+      to the current mean brightness of the image.
+    - After adjusting the brightness using gamma transformation, the image is normalized to the range [0, 1].
+    
+    Example:
+    --------
+    bright_img = normalise_brightness(img, target_mean=0.25)
     """
     # Adjust image to mean brightness of 0.25
     gamma = np.log(target_mean) / np.log(img.mean())
@@ -659,9 +958,49 @@ def normalise_brightness(img, target_mean=0.2):
 
 
 def shadow_compensate(img, gamma=1, win_size=75, plot=False):
-    """Using moving averages, compensate for vessel shadowing by
-    scaling A-scan pixel intensities to average out drop in signal caused by shadowing.
-    Gamma is used here as an implicit enhancer too."""
+    """
+    Compensates for vessel shadowing in an OCT B-scan image by adjusting A-scan pixel intensities. 
+    The compensation is achieved by scaling the intensities to average out the drop in signal 
+    caused by shadowing, using a moving average filter. The `gamma` parameter enhances the image 
+    by adjusting the pixel intensity scaling.
+
+    Parameters:
+    -----------
+    img : numpy.ndarray
+        A 2D or 3D array representing the OCT B-scan image. If the image has more than two dimensions 
+        (e.g., RGB), the first channel is assumed to be the grayscale (OCT) image.
+        
+    gamma : float, optional, default=1
+        A scaling factor for intensity adjustment. Values greater than 1 darken the image, 
+        while values less than 1 brighten it. This serves as an implicit image enhancement.
+
+    win_size : int, optional, default=75
+        The window size for the moving average used to smooth the energy levels across A-scans. 
+
+    plot : bool, optional, default=False
+        If True, the function will generate plots showing the energy levels, compensation factors, 
+        and comparisons between the original and compensated images.
+
+    Returns:
+    --------
+    numpy.ndarray
+        A 2D array representing the shadow-compensated OCT image, normalized to the same range 
+        as the original input image.
+
+    Notes:
+    ------
+    - The function first crops any black columns on the left and right sides of the image, assuming 
+      these columns represent areas with no data.
+    - It adjusts pixel intensities using a gamma correction followed by a moving average filtering 
+      of the total energy across each A-scan.
+    - The compensation is applied by scaling each A-scan energy to match its smoothed energy value.
+    - If `plot` is set to True, two sets of plots are generated: one for the energy levels and correction 
+      factors, and another comparing the original and compensated images.
+
+    Example:
+    --------
+    compensated_img = shadow_compensate(img, gamma=1.2, win_size=100, plot=True)
+    """
     # If RGB, select first channel on the assumption it is an OCT B-scan 
     # and is therefore grayscale. Channels in last dimension by assumption.
     if img.ndim > 2:
@@ -728,9 +1067,35 @@ def shadow_compensate(img, gamma=1, win_size=75, plot=False):
 
 
 def flatten_dict(nested_dict):
-    '''
-    Recursive flattening of a dictionary of dictionaries.
-    '''
+    """
+    Recursively flattens a nested dictionary where each value can be a dictionary itself. 
+    The function traverses the nested structure and constructs a flat dictionary where 
+    the keys represent the hierarchical path to the value.
+
+    Parameters:
+    -----------
+    nested_dict : dict
+        A nested dictionary where the values can be either other dictionaries or non-dictionary values.
+
+    Returns:
+    --------
+    dict
+        A flattened dictionary where the keys are tuples representing the path to the value 
+        in the original nested structure, and the values are the corresponding leaf values.
+
+    Example:
+    --------
+    >>> example_dict = {
+        'A': {'A1': 1, 'A2': 2},
+        'B': {'B1': 3}
+    }
+    >>> flatten_dict(example_dict)
+    {
+        ('A', 'A1'): 1,
+        ('A', 'A2'): 2,
+        ('B', 'B1'): 3
+    }
+    """
     res = {}
     if isinstance(nested_dict, dict):
         for k in nested_dict:
@@ -745,9 +1110,40 @@ def flatten_dict(nested_dict):
 
 
 def nested_dict_to_df(values_dict):
-    '''
-    Nested dictionary is flattened and converted into an index-wise, multi-level Pandas DataFrame
-    '''
+    """
+    Converts a nested dictionary into a multi-level Pandas DataFrame by first flattening it.
+    The resulting DataFrame has a hierarchical column structure, where the dictionary keys 
+    define the index and columns.
+
+    Parameters:
+    -----------
+    values_dict : dict
+        A nested dictionary that needs to be converted into a DataFrame. The dictionary is flattened 
+        before being transformed into a DataFrame.
+
+    Returns:
+    --------
+    pandas.DataFrame
+        A Pandas DataFrame where the flattened dictionary is represented with a multi-level 
+        index and columns. The index reflects the path from the root to the leaf in the nested structure.
+
+    Notes:
+    ------
+    - This function uses `flatten_dict(...)` to flatten the input dictionary before converting it into a DataFrame.
+    - The final DataFrame is "unstacked" to create hierarchical columns, which are formatted based on 
+      the second level of the dictionary keys.
+
+    Example:
+    --------
+    >>> example_dict = {
+        'A': {'A1': 1, 'A2': 2},
+        'B': {'B1': 3}
+    }
+    >>> nested_dict_to_df(example_dict)
+    A         B
+    A1  A2    B1
+    1   2     3
+    """
     flat_dict = flatten_dict(values_dict)
     df = pd.DataFrame.from_dict(flat_dict, orient="index")
     df.index = pd.MultiIndex.from_tuples(df.index)
@@ -759,8 +1155,53 @@ def nested_dict_to_df(values_dict):
 
 def align_peripapillary_data(metadata, fovea_at_slo, slo_acq, slo_avimout, fname, save_path, save=True):
     """
-    In order to measure the thickness profile around the optic nerve head with reference
-    to the fovea, we need to align the thickness profile, i.e. the B-scan.
+    Align the peripapillary thickness profile with reference to the fovea and optic disc center.
+
+    This function aligns the thickness profile (B-scan) around the optic nerve head by determining the 
+    relative position of the fovea and optic disc (OD) and locating the index in the thickness profile
+    whose position on the circular acquisition location is co-linear with the fovea and optic disc. This
+    index is used to shift the thickness profile of the OCT B-scan to its centre
+
+    Parameters
+    ----------
+    metadata : dict
+        Metadata containing information about the acquisition, including user-specified OD center.
+        
+    fovea_at_slo : np.ndarray
+        (x,y)-coordinates of the fovea in the SLO image.
+        
+    slo_acq : np.ndarray
+        SLO acquisition image with the peripapillary circular acquisition location overlaid.
+        
+    slo_avimout : np.ndarray
+        SLO image with optic disc segmentation and other features.
+        
+    fname : str
+        Filename to use for saving the alignment plot.
+        
+    save_path : str
+        Path where the alignment plot will be saved.
+        
+    save : bool, default=True
+        Whether to save the alignment plot.
+
+    Returns
+    -------
+    od_mask_center : np.ndarray
+        (x,y)-coordinates of the model-predicted OD center.
+        
+    offset_ratio : float
+        Ratio of the distance between user-specified and model-predicted OD centers 
+        to the optic disc diameter.
+        
+    ascan_idx_temp0 : int
+        Index of the A-scan corresponding to the temporal midpoint.
+
+    Notes
+    -----
+    - This function also computes the optic disc overlap index, which is the alignment between 
+    user-specified and model-predicted OD centers, helping determine how off-centre the peripapillary
+    OCT acquisition is.
     """
     # Extract Optic disc mask and acquisition line boundary, dilate circ mask for plotting
     od_mask = slo_avimout[...,1]
@@ -786,41 +1227,14 @@ def align_peripapillary_data(metadata, fovea_at_slo, slo_acq, slo_avimout, fname
     # Work out reference line between fovea and user-specified optic disc center. 
     Xy =  np.concatenate([od_user_center[np.newaxis], fovea_at_slo[np.newaxis]], axis=0)
     linmod = LinearRegression().fit(Xy[:,0].reshape(-1,1), Xy[:,1])
-
-    # Sample line coordinates
-    x_grid = np.linspace(min(Xy[0,0], Xy[1,0]), max(Xy[0,0], Xy[1,0]), 1000).astype(int)
+    x_grid = np.arange(min(Xy[0,0], Xy[1,0]), max(Xy[0,0], Xy[1,0])).astype(int)
     y_grid = linmod.predict(x_grid.reshape(-1,1)).astype(int)
-
-    # Extract coordinates to compare directly
-    line_pts = np.array([x_grid,y_grid]).T
-    circ_pts = np.argwhere(circ_mask == 1)[:,[1,0]]
-
-    # Elementwise comparison to get pixel coord along line of acquisition colinear with fovea and OD centre
-    dist_mins = []
-    for pt in line_pts:
-        dist_mins.append(((circ_pts - pt)**2).sum(axis=1).min())
-    dist_mins = np.array(dist_mins)
-
+    
     # Intersection of reference line and circular acquisition line is where the temporal
     # midpoint
-    temp_mid_idx = ((circ_pts - line_pts[dist_mins.argmin()])**2).sum(axis=1).argmin()
-    temporal_mid = circ_pts[temp_mid_idx]
-
-    # Old, simple version before 22/10/2024, replaced by lines 790 -- 807
-    # x_grid = np.arange(min(Xy[0,0], Xy[1,0]), max(Xy[0,0], Xy[1,0])).astype(int)
-    # temp_mid_idx = np.argmax(circ_mask[(y_grid, x_grid)] == 1)
-    # temporal_mid = np.array((x_grid[temp_mid_idx], y_grid[temp_mid_idx])).reshape(-1)
-
-    # For visualising intersection point detection
-    # plt.imshow(circ_mask)
-    # plt.scatter(od_user_center[0], od_user_center[1])
-    # plt.scatter(od_mask_center[0], od_mask_center[1])
-    # plt.plot(Xy[:,0], Xy[:,1])
-    # plt.plot(x_grid, y_grid, linestyle='--')
-    # plt.plot(line_pts[:,0], line_pts[:,1])
-    # plt.scatter(circ_pts[:,0], circ_pts[:,1])
-    # plt.scatter(temporal_mid[0], temporal_mid[1])
-
+    temp_mid_idx = np.argwhere(circ_mask[(y_grid, x_grid)] == 1)[0]
+    temporal_mid = np.array((x_grid[temp_mid_idx], y_grid[temp_mid_idx])).reshape(-1)
+    
     # Work out where this temporal midpoint is along the peripapillary OCT B-can (A-scan
     # location). We use this value to align our thickness profile to, i.e. shift
     # the peripapillary OCT B-scan in order for the central A-scan to be where the middle
@@ -861,12 +1275,37 @@ def align_peripapillary_data(metadata, fovea_at_slo, slo_acq, slo_avimout, fname
     return od_mask_center, offset_ratio, ascan_idx_temp0
 
 
-
 def compute_opticdisc_radius(fovea, od_centre, od_mask):
     """
-    Work out optic disc radius in pixels, according to it's position relative to the fovea.
+    Compute the optic disc radius relative to its position with the fovea.
 
-    This is deprecated, and a simpler version averages and minor and major axis lengths.
+    This function calculates the optic disc radius by determining the intersection of a 
+    reference line (from the fovea to the optic disc center) with the optic disc boundary.
+
+    Parameters
+    ----------
+    fovea : np.ndarray
+        (x,y)-coordinates of the fovea in the image.
+        
+    od_centre : np.ndarray
+        (x,y)-coordinates of the optic disc center in the image.
+        
+    od_mask : np.ndarray
+        Binary mask of the optic disc.
+
+    Returns
+    -------
+    od_radius : int
+        Radius of the optic disc in pixels, calculated relative to the fovea.
+        
+    plot_info : tuple
+        Information for plotting, including the intersection coordinates, 
+        the reference line grid, and intersection indices.
+
+    Notes
+    -----
+    - This is deprecated, as a simpler version averages and minor and major axis lengths
+    in '_process_opticdisc'.
     """
     # Extract Optic disc mask and acquisition line boundary,
     od_mask_props = measure.regionprops(measure.label(od_mask))[0]
@@ -897,7 +1336,24 @@ def compute_opticdisc_radius(fovea, od_centre, od_mask):
 
 def _process_opticdisc(od_mask):
     """
-    Work out optic disc radius in pixels, according to it's position relative to the fovea.
+    Compute the optic disc radius and extract its boundary.
+
+    This function calculates the average optic disc radius using the minor and major 
+    axis lengths of the optic disc mask and identifies the boundary of the optic disc.
+
+    Parameters
+    ----------
+    od_mask : np.ndarray
+        Binary mask of the optic disc.
+
+    Returns
+    -------
+    od_radius : int or None
+        Radius of the optic disc in pixels, averaged from the major and minor axes.
+        Returns `None` if the optic disc mask is invalid.
+        
+    od_boundary : np.ndarray
+        Binary mask of the optic disc boundary.
     """
     # Extract Optic disc radius and OD boundary if detected
     try:
@@ -911,11 +1367,42 @@ def _process_opticdisc(od_mask):
 
 
 
-def _get_fovea(rvfmasks, foveas, N_scans=31, scan_type="Ppole", logging=[]):
-    '''
-    Helper function to resolve fovea coordinate if prediction map below default threshold,
-    or if volume scan acquisition not centred at fovea
-    '''
+def get_fovea(rvfmasks, foveas, N_scans=31, scan_type="Ppole", logging=[]):
+    """
+    Resolves the fovea coordinate based on the provided fovea prediction maps and scan type. 
+    This function is designed to handle cases where the fovea prediction is below a threshold 
+    or when the scan acquisition is not centered at the fovea.
+
+    Parameters:
+    -----------
+    rvfmasks : list of numpy arrays
+        A list of region/vessel/fovea (RVF) masks for all B-scan slices. 
+        Each mask is a 2D array representing the raw pixel-wise predictions of chorioretinal features.
+
+    foveas : list of numpy arrays
+        A list of fovea xy-predictions for each scan slice. Each element is an (x,y)-coordinate which
+        is the predicted fovea coordinates for the corresponding slice.
+
+    scan_type : str, optional, default="Ppole"
+        The type of scan being processed. Determines if the scan is assumed to be fovea-centered 
+        or not (e.g., for AV-line scans).
+
+    logging : list, optional, default=[]
+        A list that collects log messages for debugging and tracking the function's behavior.
+
+    Returns:
+    --------
+    fovea_slice_num : int
+        The index of the B-scan slice where the fovea is most likely located.
+
+    fovea : numpy array or None
+        The predicted fovea (xy)-coordinates for the selected slice. If no fovea is detected, it can be `None`.
+
+    logging : list
+        The updated logging list with additional messages about the fovea detection process.
+    """
+    N_scans = len(rvfmasks)
+    _, M, N = rvfmasks[0].shape
     if N_scans == 1:
         fovea_slice_num = 0
         fovea = foveas[0]
@@ -930,67 +1417,99 @@ def _get_fovea(rvfmasks, foveas, N_scans=31, scan_type="Ppole", logging=[]):
             logging.append(msg)
             print(msg)
 
-    else:
-        fovea_slice_num = N_scans//2 + 1
+    elif scan_type == 'Radial':
+        fovea_slice_num = N_scans//2
         fovea = foveas[fovea_slice_num]
-        if fovea.sum() == 0:
-            msg = "\n\nPrediction threshold for fovea too high or non-centred Ppole scan acquisition."
-            logging.append(msg)
-            print(msg)
-            foveas_arr = np.array(foveas)
-            fov_idx = np.where(foveas_arr[:,0]>0)[0]
 
-            # If default fovea-centred B-scan prediction is at origin, work out highest score from fovea masks
-            # which have detected a fovea coordinate
-            if fov_idx.shape[0] > 0:
-                fov_scores = []
-                fov_preds = []
-                for idx in fov_idx:
-                    fmask = rvfmasks[idx][-1]
-                    fov_pred = choroidalyzer_inference.process_fovea_prediction(torch.tensor(fmask).unsqueeze(0))[0]
-                    fov_scores.append(fmask[fov_pred[1], fov_pred[0]])
-                    fov_preds.append(fov_pred)
-                fovea_slice_num = fov_idx[np.argmax(fov_scores)]+1
-                #fovea = fov_preds[np.argmax(fov_scores)]
-                msg = f"Potentially detected fovea-centred B-scan in Ppole at slice {fovea_slice_num}/{N_scans}."
-                logging.append(msg)
-                print(msg)
-            fmask = rvfmasks[fovea_slice_num][-1]
-            fovea = choroidalyzer_inference.process_fovea_prediction(torch.tensor(fmask).unsqueeze(0))[0]
-            msg = "Detecting from raw probabilities. Please check output for correct fovea alignment."
+    elif scan_type == 'Ppole':
+        foveas_arr = np.array(foveas)
+        fov_idx = np.where(foveas_arr[:,0]>0)[0]
+
+        # If default fovea-centred B-scan prediction is at origin, work out highest score from fovea masks
+        # which have detected a fovea coordinate
+        if fov_idx.shape[0] > 0:
+            fov_scores = []
+            fov_preds = []
+            for idx in fov_idx:
+                fmask = rvfmasks[idx][-1]
+                fov_pred = choroidalyzer_inference.process_fovea_prediction(torch.tensor(fmask).unsqueeze(0))[0]
+                fov_scores.append(fmask[fov_pred[1], fov_pred[0]])
+                fov_preds.append(fov_pred)
+            fovea_slice_num = fov_idx[np.argmax(fov_scores)]
+        else:
+            msg = "\n\nCannot locate the fovea. Taking the middle of the OCT acquisition by default."
             logging.append(msg)
             print(msg)
+            fovea_slice_num = N_scans//2
+            fovea = np.array([N//2, M//2])
+            logging.append(msg)
 
     return fovea_slice_num, fovea, logging
 
 
-def _sort_trace_input(df, scan_location="H-line", layers=["CHORupper", "CHORlower"]):
-    '''
-    Helper function for loading in trace(s) from a dataframe loaded from an excel file
-    '''
-    lyr1, lyr2 = layers
-    if isinstance(df, (str, PosixPath, WindowsPath)):
-        df = pd.read_excel(df, sheet_name=f"segmentations_{scan_location}")
-    upperChor = df[df.layer == lyr1].values[:,2:]
-    lowerChor = df[df.layer == lyr2].values[:,2:]
-    N = upperChor.shape[1]
-    x_grid = np.repeat(np.arange(N).reshape(1,-1), axis=0, repeats=upperChor.shape[0])
-    upper = np.concatenate([x_grid[np.newaxis], upperChor[np.newaxis]], axis=0).T.swapaxes(0,1)
-    lower =np.concatenate([x_grid[np.newaxis], lowerChor[np.newaxis]], axis=0).T.swapaxes(0,1)
-    traces = [(tu[tu[:,1] != 0].astype(np.int64),
-               tl[tl[:,1] != 0].astype(np.int64))  for (tu,tl) in zip(upper,lower)]
-
-    return traces
-
-
-
 
 def load_annotation(path, key=None, raw=False, binary=False):
-    """Load in .nii.gz file and output region and vessel masks"""
-    
+    """
+    Load a `.nii.gz` annotation file and extract region and vessel masks.
+
+    This function reads a `.nii.gz` file containing manual segmentations for an SLO image 
+    and extracts artery, vein, optic disc, and overall segmentation masks. It supports 
+    returning the raw segmentation map or binary vessel masks.
+
+    Parameters:
+    ----------
+    path : str or pathlib.Path
+        File path to the `.nii.gz` annotation file.
+
+    key : tuple of int, optional
+        Custom grayscale intensity values for artery, vein, and optic disc in the 
+        annotation file. Defaults to:
+        - Artery: 191
+        - Vein: 127
+        - Optic Disc: 255.
+
+    raw : bool, optional, default=False
+        If True, returns the raw segmentation map without further processing.
+
+    binary : bool, optional, default=False
+        If True, returns a binary mask corresponding to the optic disc region 
+        (grayscale intensity `key[2]` or default value `255`).
+
+    Returns:
+    -------
+    np.ndarray
+        - If `raw=True`: Returns a 2D array representing the raw segmentation map.
+        - If `binary=True`: Returns a binary mask for the all-vessel model.
+        - Otherwise: Returns a 3D binary mask for the AVOD model:
+            - Channel 0: Binary mask for arteries.
+            - Channel 1: Binary mask for the optic disc.
+            - Channel 2: Binary mask for veins.
+            - Channel 3: Binary mask for all segmented regions.
+
+    Notes:
+    -----
+    - Default grayscale intensity values correspond to the label encoding used in ITK-Snap.
+    - The returned array's shape is `(H, W, 4)` when `raw` and `binary` are False.
+
+    Examples:
+    --------
+    >>> cmap = load_annotation("/path/to/annotation.nii.gz")
+    >>> print(cmap.shape)
+    (512, 512, 4)
+
+    >>> raw_segmentation = load_annotation("/path/to/annotation.nii.gz", raw=True)
+    >>> print(raw_segmentation.shape)
+    (512, 512)
+
+    >>> optic_disc_binary = load_annotation("/path/to/annotation.nii.gz", binary=True)
+    >>> print(optic_disc_binary.shape)
+    (512, 512)
+    """    
     # Read the .nii image containing thevsegmentations
     sitk_t1 = sitk.ReadImage(path)
 
+    # Default grayscale intensity encoding from ITK-Snap for 
+    # manual SLO segmentation
     if key is None:
         a_i = 191
         od_i = 255
@@ -1023,11 +1542,86 @@ def load_annotation(path, key=None, raw=False, binary=False):
     return cmap
 
 
-def plot_composite_volume(bscan_data, vmasks, fovea_slice_num, layer_pairwise, reshape_idx, analyse_choroid, fname, save_path):
-    '''
-    Plot high-res, composite image of all volume B-scans (apart from fovea-centred one) stitched together with
-    segmentations overlaid.
-    '''
+
+def plot_composite_bscans(bscan_data, vmasks, fovea_info, layer_pairwise, reshape_idx, analyse_choroid, fname, save_path, overlay_areas=None):
+    """
+    Create and save a composite high-resolution visualization of all B-scans in an OCT stack.
+
+    This function generates a stitched image of all B-scans from an OCT scan stack, with overlaid 
+    segmentations, regions of interest (ROI), and optional vessel maps. It supports volume and 
+    H-line/V-line/Radial scan formats and can include fovea-centered landmarks and additional ROI overlays if specified.
+
+    Parameters:
+    ----------
+    bscan_data : ndarray
+        3D array containing the OCT B-scan data with dimensions `(num_scans, height, width)`.
+
+    vmasks : ndarray
+        3D array of choroidal vessel masks corresponding to the B-scans. Required if `analyse_choroid` is `True`.
+
+    fovea_info : int or list
+        - If an integer, it specifies the index of the fovea-centered B-scan in volume scans.
+        - If a list, it contains `(x, y)` coordinates of the fovea for H-line/V-line/Radial scans.
+
+    layer_pairwise : dict
+        Dictionary where keys are layer boundary pairs (e.g., "ILM_BM") and values are lists of 
+        segmentation traces for each B-scan.
+
+    reshape_idx : tuple
+        Tuple specifying how the B-scans should be arranged in the composite (e.g., `(rows, cols)`).
+
+    analyse_choroid : bool
+        Flag indicating whether to include choroid-related visualizations (e.g., vessel maps).
+
+    fname : str
+        The base name of the output file (excluding the file extension).
+
+    save_path : str or pathlib.Path
+        Directory path where the resulting composite image will be saved.
+
+    overlay_areas : dict, optional
+        Dictionary containing additional overlays representing the ROIs measured, with the following keys:
+        - `areas`: List of 2D arrays specifying regions of interest for the retina and choroid.
+        - `thicks`: List of thickness measurements and their corresponding overlays.
+        - `macula_rum`: Radius of the macular region of interest in microns.
+
+    Returns:
+    -------
+    None
+        The function saves the generated composite image to the specified directory.
+
+    Outputs:
+    -------
+    - A high-resolution PNG file showing the stitched B-scans with overlays:
+        - For volume scans: `{fname}_volume_octseg.png`
+        - For H-line/V-line/Radial scans: `{fname}_linescan_octseg.png`
+
+    Notes:
+    -----
+    - For volume scans, the fovea-centered B-scan is excluded from the composite image.
+    - Overlays include fovea-centered ROIs for the retina (and choroid if `analyse_choroid`
+      is True), and thickness lines to define their boundaries.
+    - Colours for segmentations are randomized for clear visualisation.
+    - The figure dimensions and DPI are optimised for high-resolution output.
+
+    Examples:
+    --------
+    >>> plot_composite_bscans(
+    ...     bscan_data=bscan_array,
+    ...     vmasks=choroid_vessel_masks,
+    ...     fovea_info=30,  # For volume scans
+    ...     layer_pairwise=segmentation_traces,
+    ...     reshape_idx=(5, 5),
+    ...     analyse_choroid=True,
+    ...     fname="example_scan",
+    ...     save_path="/path/to/output",
+    ...     overlay_areas={
+    ...         "areas": retina_choroid_rois,
+    ...         "thicks": thickness_overlays,
+    ...         "macula_rum": 1000
+    ...     }
+    ... )
+    """
     # Get layer names
     pairwise_keys = list(layer_pairwise.keys())
     layer_keys = list(set(pd.DataFrame(pairwise_keys).reset_index(drop=True)[0].str.split("_", expand=True).values.flatten()))
@@ -1036,66 +1630,132 @@ def plot_composite_volume(bscan_data, vmasks, fovea_slice_num, layer_pairwise, r
     img_shape = bscan_data.shape[-2:]
     M, N = img_shape
     bscan_list = list(bscan_data.copy())
-    bscan_list.pop(fovea_slice_num)
+    if isinstance(fovea_info, int):
+        bscan_list.pop(fovea_info)
     bscan_arr = np.array(bscan_list)
     bscan_arr = bscan_arr.reshape(*reshape_idx,*img_shape)
-    bscan_hstacks = []
+    bscan_stacked = np.concatenate(np.concatenate(bscan_arr, axis=-2), axis=-1)
 
+    # Sort out vessel maps if analysing choroid
     if analyse_choroid:
         vmasks_list = list(vmasks.copy())
-        vmasks_list.pop(fovea_slice_num)
+        if isinstance(fovea_info, int):
+            vmasks_list.pop(fovea_info)
         vmasks_arr = np.asarray(vmasks_list)
         vmasks_arr = vmasks_arr.reshape(*reshape_idx,M,N)
-        vmask_hstacks = []
-
-    # Stack B-scans and vessel maps horizontally
-    for i in range(reshape_idx[0]):
-        bscan_hstacks.append(np.hstack(bscan_arr[i]))
-        if analyse_choroid:
-            vmask_hstacks.append(np.hstack(vmasks_arr[i]))
-
-    # Stack B-scans and vessel maps vertically
-    bscan_stacked = np.vstack(bscan_hstacks)
-    if analyse_choroid:
-        vmask_stacked = np.vstack(vmask_hstacks)
+        vmask_stacked = np.concatenate(np.concatenate(vmasks_arr, axis=-2), axis=-1)
         all_vcmap = np.concatenate([vmask_stacked[...,np.newaxis]] 
                     + 2*[np.zeros_like(vmask_stacked)[...,np.newaxis]] 
                     + [vmask_stacked[...,np.newaxis] > 0.01], axis=-1)
 
-    # figure to be saved out at same dimensions as stacked array
-    h,w = bscan_stacked.shape
+    # Stack measurement ROIs if overlays are provided
+    if overlay_areas is not None:
+        areas = overlay_areas['areas']
+        retmaps = np.array([arr[0] for arr in areas]).reshape(*reshape_idx,M,N)
+        retmaps = np.concatenate(np.concatenate(retmaps, axis=-2), axis=-1)
+        if analyse_choroid:
+            chormaps = np.array([arr[1] for arr in areas]).reshape(*reshape_idx,M,N)
+            chormaps = np.concatenate(np.concatenate(chormaps, axis=-2), axis=-1)
+
+    # Colour scheme for different layer segmentations    
     np.random.seed(0)
     COLORS = {key:np.random.randint(255, size=3)/255 for key in layer_keys}
+
+    # Figure to be saved out at same dimensions as stacked array
+    h,w = bscan_stacked.shape
     fig, ax = plt.subplots(1,1,figsize=(w/1000, h/1000), dpi=100)
     ax.set_axis_off()
-    ax.imshow(bscan_stacked, cmap='gray')
 
-    # add all traces
+    # Overlay stacked B-scans and ROI maps of retina and choroid (if provided)
+    ax.imshow(bscan_stacked, cmap='gray')
+    if overlay_areas is not None:
+        ax.imshow(generate_imgmask(retmaps, None, 1), alpha=0.25, zorder=1)
+        if analyse_choroid:
+            ax.imshow(generate_imgmask(chormaps, None, 1), alpha=0.25, zorder=1)
+
+    # Add all traces and fovea (if provided)
     for (i, j) in np.ndindex(reshape_idx):
         layer_keys_copied = layer_keys.copy()
         for key, traces in layer_pairwise.items():
             tr = traces.copy()
-            tr.pop(fovea_slice_num)
+
+            # If volume scan, remove fovea-centred trace
+            if isinstance(fovea_info, int):
+                tr.pop(fovea_info)
+
+            # If radial scan, overlay foveas
+            else:
+                fovea_xy = fovea_info[reshape_idx[1]*i + j]
+                ax.scatter(fovea_xy[0]+j*N, fovea_xy[1]+i*M, label='_ignore', color='r', zorder=3, marker='X', edgecolors=(0,0,0), linewidth=0.1, s=2)
+
+            # If radial, overlay ROI area - NEED TO CHECK THIS
+            if overlay_areas is not None:
+                all_thicks = overlay_areas['thicks'][reshape_idx[1]*i + j]
+                for thicks in all_thicks:
+                    if thicks is not None:
+                        for line_pts in thicks:
+                            ax.plot(line_pts[:,0]+j*N, line_pts[:,1]+i*M, color='g', linestyle='--', linewidth=0.175, zorder=3, label='_ignore')
+                if i == 0 and j == 0 and key == 'ILM_BM':
+                    ax.fill_between([-2,-1], [-2,-1], color='g', alpha=0.25, label=f"Region of interest\n({2*overlay_areas['macula_rum']} microns fovea-centred)")
+
+            # Overlay trace
             for (k, t) in zip(key.split("_"), tr[reshape_idx[1]*i + j]):
                 if k in layer_keys_copied:
                     c = COLORS[k]
                     ax.plot(t[:,0]+j*N,t[:,1]+i*M, label='_ignore', color=c, zorder=2, linewidth=0.175)
                     layer_keys_copied.remove(k)
 
-    # add vessel maps  
+    # Add vessel maps  (if analyse_choroid is 1)
     if analyse_choroid:
         ax.imshow(all_vcmap, alpha=0.5)
+
+    # Prepare to save out
+    if overlay_areas is not None:
+        ax.axis([0, w-1, h-1, 0])
+        ax.legend(fontsize=h/1000)
     fig.tight_layout(pad=0)
-    fig.savefig(os.path.join(save_path, f"{fname}_volume_octseg.png"), dpi=1000)
+    if isinstance(fovea_info, int):
+        fig.savefig(os.path.join(save_path, f"{fname}_volume_octseg.png"), dpi=1000)
+    else:
+        fig.savefig(os.path.join(save_path, f"{fname}_linescan_octseg.png"), dpi=1000)
     plt.close()
 
 
 def print_error(e, verbose=True):
-    '''
-    If robust_run is 1 and an unexpected error occurs, this will be printed out and also saved to the log.
+    """
+    Generate and print detailed information about an exception, including its traceback.
 
-    A detailed explanation of the error found.
-    '''
+    This function is used to handle unexpected errors during execution. It provides a detailed 
+    explanation of the exception type, message, and traceback information. The output is 
+    optionally printed to the console and returned as a log-friendly list of strings.
+
+    Parameters:
+    ----------
+    e : Exception
+        The exception instance to be analysed and logged.
+    verbose : bool, optional, default=True
+        If True, prints the error message and traceback details to the console.
+
+    Returns:
+    -------
+    logging_list : list of str
+        A list of strings containing the exception message and full traceback details.
+
+    Notes:
+    -----
+    - This function is typically used in robust execution contexts where errors need 
+      to be logged for debugging without halting the program.
+    - The traceback information includes the filename, function name, and line number 
+      for each level of the traceback.
+
+    Examples:
+    --------
+    >>> try:
+    ...     1 / 0
+    ... except Exception as e:
+    ...     error_log = print_error(e, verbose=True)
+    ...     # Outputs error details to the console and saves them in error_log.
+    """
     message = f"\nAn exception of type {type(e).__name__} occurred. Error description:\n{str(e)}\n"
     if verbose:
         print(message)
@@ -1131,6 +1791,7 @@ meta_cols = {'Filename':'Filename of the SLO+OCT file analyse.',
              'bscan_scale_z': 'Micron distance between successive B-scans in a Posterior pole acquisition. Is 0 for all other Bscan_types.',
              'bscan_scale_x': 'Pixel lengthscale in the horizontal direction B-scan/SLO, measured in microns per pixel.',
              'bscan_scale_y': 'Pixel lengthscale in the vertical direction in the B-scan, measured in microns per pixel.',
+             'bscan_ROI_mm': 'Region of interest (distance) captured by each B-scan measured in mm.',
              'scale_units': 'Units of the lengthscales, this is fixed as microns per pixel.',
              
              'avg_quality': 'Heidelberg-provided signal-to-noise ratio of the B-scan(s).',
@@ -1148,11 +1809,10 @@ meta_cols = {'Filename':'Filename of the SLO+OCT file analyse.',
              
              'bscan_fovea_x': 'Horizontal pixel position of the fovea on the OCT B-scan (if visible in one of the scans, only relevant for macular OCT).',
              'bscan_fovea_y': 'Vertical pixel position of the fovea on the OCT B-scan (if visible in one of the scans, only relevant for macular OCT).',
-             'bscan_missing_fovea':'Boolean value flagging whether fovea is missing from OCT data (either due to acquisition or segmentation failure).',
              'slo_fovea_x': 'Horizontal pixel position of the fovea on the SLO image, if visible.',
              'slo_fovea_y': 'Vertical pixel position of the fovea on the SLO image, if visible.',
              'acquisition_angle_degrees': 'Angle of elevation from horizontal image axis of acquisition for Posterior pole scans.',
-             'slo_missing_fovea':'Boolean value flagging whether fovea is missing from SLO data (either due to acquisition or segmentation failure).',
+             'slo_missing_fovea':'Boolean value flagging whether fovea is missing from data (either due to acquisition or segmentation failure).',
              
              'optic_disc_overlap_index_%':'% of the optic disc diameter, defining how off-centre a peripapillary image acquisition is from the optic disc centre.',
              'optic_disc_overlap_warning': 'Boolean value, flagging if the overlap index is greater than 15%, the empirical cut-off to warn end-user of an off-centre scan.',
@@ -1167,9 +1827,7 @@ meta_cols = {'Filename':'Filename of the SLO+OCT file analyse.',
              'volume_units':'Units of measurements for volume, always in mm3 (cubic millimetres).',
              'linescan_area_ROI_microns':'For single-line, macular OCT, this is the micron distance defining the fovea-centred region of interest.',
              'choroid_measure_type':'Whether the choroid is measured column-wise (per A-scan) or perpendicularly. Always per A-scan for peripapillary OCT.',
-             'missing_retinal_oct_linescan_measurements':'Whether OCT retinal measurements could not be computed for H-/V-linescans due to too large an ROI or too short a segmentation.',
-             'missing_choroid_oct_linescan_measurements':'Whether OCT choroidal measurements could not be computed for H-/V-linescans due to too large an ROI or too short a segmentation.',
-
+             
              'acquisition_radius_px': 'Pixel radius of the acquisition line around the optic disc for peripapillary OCT.',
              'acquisition_radius_mm': 'Millimetre radius of the acquisition line around the optic disc for peripapillary OCT.',
              'acquisition_optic_disc_center_x': 'Horizontal pixel position of the optic disc centre, as selected by the user during peripapillary OCT acquisition.',

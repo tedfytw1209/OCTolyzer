@@ -91,7 +91,7 @@ class DeepGPET:
         self.threshold = threshold
         self.verbose = ~verbose
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        #self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.device = "mps" if torch.backends.mps.is_available() else self.device
         if local_model_path is not None:
             self.model = torch.load(local_model_path, map_location=self.device)
         else:
