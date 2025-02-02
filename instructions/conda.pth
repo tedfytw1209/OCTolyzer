@@ -1,5 +1,10 @@
 path\to\OCTolyzer 
 
-# For example, for Windows native I'd write 
+# This file `conda.pth` will allow your Python environment to have access to the files in your local copy of OCTolyzer.
+# Change the file path above to the absolute file path to OCTolyzer. For example, for Windows native I'd write 
 # C:\Users\s1522100\Documents\PhD Work\Github\OCTolyzer
-# Remove these three lines once you corrected the directory path on line 1
+# Copy this file into the `site-packages` directory of your python environment, commonly found at
+# path\to\miniconda3\envs\oct-analysis\Lib\site-packages
+# This means your conda environment `oct-analysis` has access to OCTolyzer's pipeline.
+# Importantly, you can now use `import octolyzer` in any notebook or python script which uses this conda environment.
+# Remove these 8 lines once you corrected the directory path on line 1
