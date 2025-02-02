@@ -2,16 +2,15 @@ QuickStart instructions for OCTolyzer
 
 1. Install miniconda (https://docs.anaconda.com/miniconda/miniconda-install/)
 
-2. Open anaconda prompt and execute (line by line)
-    conda create -n oct-analysis python=3.11
+2. Open anaconda prompt and clone this repository via 'git clone https://github.com/jaburke166/OCTolyzer.git' 
+
+3.  Install dependencies by executing (line by line)
+    conda create -n oct-analysis python=3.11 -y
 	conda activate oct-analysis
-	pip3 install torch torchvision
-	pip3 install scikit-image opencv-python scikit-learn tqdm seaborn notebook jupyterlab ipywidgets eyepy timm openpyxl segmentation_models_pytorch SimpleITK
+	pip install -r requirements.txt
 
-3. Clone this repository via 'git clone https://github.com/jaburke166/OCTolyzer.git' in Git Bash or similar
+4. Specify analysis_directory and output_directory in path\to\OCTolyzer\config.txt
 
-3. Specify analysis_directory and output_directory in path\to\OCTolyzer\config.txt
-
-4. In anaconda prompt, navigate to path\to\OCTolyzer and execute
+5. In anaconda prompt, navigate to path\to\OCTolyzer and execute
     	python octolyzer\main.py
 
