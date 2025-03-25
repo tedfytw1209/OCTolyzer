@@ -2,10 +2,10 @@
 # MAKE SURE NAMES AND INPUTS ARE SEPARATED WITH ": " [colon-spacebar]
 
 # This is the folder which .vol files will be read from and analysed
-analysis_directory: C:\Users\s1522100\Documents\PhD Work\Python Scripts\Github\OCTolyzer\analyze\demo
+analysis_directory: /Users/s1522100/Documents/OCTolyzer/analyze/demo
 
 # This is the folder which will save all results into
-output_directory: C:\Users\s1522100\Documents\PhD Work\Python Scripts\Github\OCTolyzer\analyze\output
+output_directory: /Users/s1522100/Documents/OCTolyzer/analyze/demo_output
 
 --------------------------------------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ preprocess_bscans: 1
 analyse_choroid: 1
 
 # By default, the accompanying SLO image will be analysed, but this is a flag to toggle SLO analysis off/on (0/1)
-analyse_slo: 0
+analyse_slo: 1
 
 # This is to specify specific retinal thickness map slabs, i.e. ILM_OPL, RNFL_PR1, etc. 
 # Only valid for OCT Volume scans.
@@ -43,7 +43,7 @@ analyse_square_grid: 0
 # Option to measure choroid A-scan, column-wise (vertical) or locally perpendicular to 
 # upper boundary (perpendicular)
 # Only valid for OCT Volume and Linescan data
-choroid_measure_type: perpendicular
+choroid_measure_type: vertical
 
 # Distance either side of fovea to measure structures in H-line, V-line scans in microns, i.e. 500 microns, 3000 microns, etc.
 # Only valid for OCT Linescan data, centred at the fovea (H-line/V-line)

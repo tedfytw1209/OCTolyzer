@@ -52,7 +52,7 @@ def process_fovea_prediction(preds):
         fovea_signal_filter = _get_fov_filter(k).to(preds.device)
         fov_signal = _agg_fov_signal(preds, d)
         fov_signal = fovea_signal_filter(fov_signal).squeeze()
-        fovea.append(fov_signal.argmax(dim=-1).numpy())
+        fovea.append(fov_signal.argmax(dim=-1).cpu().numpy())
     
     return np.asarray(fovea).T.reshape(-1,2)
 
@@ -120,7 +120,7 @@ class Choroidalyzer:
         self.fov_thresh = fov_thresh
         self.verbose = ~verbose
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        #self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
         if local_model_path is not None:
             if base:
                 self.model = torch.load(local_model_path[0], map_location=self.device)

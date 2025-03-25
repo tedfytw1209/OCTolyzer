@@ -2,9 +2,11 @@ import os
 import sys
 
 SCRIPT_PATH = os.path.realpath(os.path.dirname(__file__))
-MODULE_PATH = "\\".join(SCRIPT_PATH.split('\\')[:-1])
+MODULE_PATH = os.path.split(SCRIPT_PATH)[0]
+PACKAGE_PATH = os.path.split(MODULE_PATH)[0]
 sys.path.append(SCRIPT_PATH)
 sys.path.append(MODULE_PATH)
+sys.path.append(PACKAGE_PATH)
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,7 +16,6 @@ import cv2
 import scipy
 import utils
 from PIL import Image, ImageOps
-from pathlib import Path, PosixPath, WindowsPath
 
 from octolyzer.measure.bscan.thickness_maps import grid
 from octolyzer.segment.octseg import choroidalyzer_inference, deepgpet_inference

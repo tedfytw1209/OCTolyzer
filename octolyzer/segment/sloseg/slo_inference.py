@@ -115,7 +115,7 @@ class SLOSegmenter:
         self.transform = get_default_img_transforms()
         self.threshold = threshold
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        #self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
         if local_model_path is not None:
             self.model = torch.load(local_model_path, map_location=self.device)
         else:
@@ -137,25 +137,20 @@ class SLOSegmenter:
             img_shape = img.shape
             img = ImageOps.grayscale(Image.fromarray(img))
 
-        # If downsamples to (768,768), prepare for upsampling
-        if img_shape != (768,768):
-            RESIZE = T.Resize(img_shape, antialias=True)
-        else:
-            RESIZE = None
-            
+        RESIZE = T.Resize(size=img_shape, antialias=True)
         with torch.no_grad():
             img, (M, N) = self.transform(img)
             img = img.unsqueeze(0).to(self.device)
-            pred = self.model(img).squeeze(0).sigmoid()[1][:M, :N]
+            pred = self.model(img).squeeze(0).sigmoid()[1][:M, :N].cpu()
 
             # Resize back to native resolution
-            if RESIZE is not None:
-                pred = RESIZE(tv_tensors.Image(pred))[0]
+            if img_shape != (768,768):
+                pred = RESIZE(pred.unsqueeze(0))[0]
 
             # Return if soft_pred, otherwise post-process
             if soft_pred:
-                return pred.cpu().numpy()
-            pred = (pred > self.threshold).int().cpu().numpy()
+                return pred.numpy()
+            pred = (pred > self.threshold).int().numpy()
             pred = process_slomap(pred)
 
             return pred

@@ -2,12 +2,8 @@ import os
 import sys
 
 SCRIPT_PATH = os.path.realpath(os.path.dirname(__file__))
-if os.name == 'posix': 
-    MODULE_PATH = "/".join(SCRIPT_PATH.split('/')[:-1])
-    PACKAGE_PATH = "/".join(SCRIPT_PATH.split('/')[:-2])
-elif os.name == 'nt':
-    MODULE_PATH = "\\".join(SCRIPT_PATH.split('\\')[:-1])
-    PACKAGE_PATH = "\\".join(SCRIPT_PATH.split('\\')[:-2])
+MODULE_PATH = os.path.split(SCRIPT_PATH)[0]
+PACKAGE_PATH = os.path.split(MODULE_PATH)[0]
 sys.path.append(SCRIPT_PATH)
 sys.path.append(MODULE_PATH)
 sys.path.append(PACKAGE_PATH)
@@ -15,12 +11,8 @@ sys.path.append(PACKAGE_PATH)
 import shutil
 import pandas as pd
 import numpy as np
-from PIL import ImageOps, Image
 from pathlib import Path, PosixPath, WindowsPath
-import matplotlib.pyplot as plt
-from skimage import segmentation, morphology
 from octolyzer import utils
-from octolyzer.measure.slo import slo_measurement
 
 
 # Load in previously analysed results (if saved out)

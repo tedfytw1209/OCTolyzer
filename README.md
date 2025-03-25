@@ -316,6 +316,10 @@ If you wish to use this toolkit please consider citing our work using the follow
 
 ## Updates
 
+### 25/03/2025
+
+* Improved efficiency of feature measurement pipeline for OCTolyzer's SLO analysis suite, replacing [AutoMorph's](https://github.com/rmaphoh/AutoMorph) vessel width measurements with those used by [AutoMorphalyzer](https://github.com/jaburke166/AutoMorphalyzer).
+
 ### 02/02/2025
 
 * Updated `README.md` structure and included a table of contents.

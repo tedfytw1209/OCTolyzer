@@ -142,7 +142,7 @@ class FOVSegmenter:
         self.transform = get_default_img_transforms()
         self.threshold = threshold
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        #self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
         if local_model_path is not None:
             self.model = torch.load(local_model_path, map_location=self.device)
         else:
@@ -162,28 +162,24 @@ class FOVSegmenter:
         elif isinstance(img, np.ndarray):
             img_shape = img.shape
             img = ImageOps.grayscale(Image.fromarray(img))
-
-        # If downsamples to (768,768), prepare for upsampling
-        if img_shape != (768,768):
-            RESIZE = T.Resize(img_shape, antialias=True)
-        else:
-            RESIZE = None
             
+        RESIZE = T.Resize(size=img_shape, antialias=True)
         with torch.no_grad():
             img, (M, N) = self.transform(img)
             img = img.unsqueeze(0).to(self.device)
-            pred = self.model(img).squeeze(0).sigmoid()[:M, :N]
+            pred = self.model(img).squeeze(0).sigmoid()[:M, :N].cpu()
 
             # Resize back to native resolution
             if RESIZE is not None:
-                pred = RESIZE(tv_tensors.Image(pred))
+                pred = RESIZE(pred)
 
             # Return if soft_pred, otherwise post-process
+            pred = pred.numpy()[0]
             if soft_pred:
-                return pred.cpu().numpy()[0]
+                return pred
             fovea = _get_fovea(pred, self.threshold)
     
-            return pred[0].cpu().numpy(), fovea
+            return pred, fovea
 
     def predict_list(self, img_list, soft_pred=False):
         """Inference on a list of images without batching"""
