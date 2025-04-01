@@ -78,15 +78,17 @@ See below for a visual description of OCTolyzer's analysis pipeline.
 
 To get a local copy up follow the steps in `instructions/quick_start.txt`, or follow the instructions below.
 
-1. You will need a local installation of Python to run OCTolyzer. We recommend a lightweight package management system such as Miniconda. Follow the instructions [here](https://docs.anaconda.com/free/miniconda/miniconda-install/) to download Miniconda for your desired operating system.
+1. You will need a local installation of Python to run OCTolyzer. We recommend a lightweight package management system such as Miniconda. Follow the instructions [here](https://www.anaconda.com/docs/getting-started/miniconda/install#installing-miniconda/) to download Miniconda for your desired operating system.
 
-2. After downloading, navigate and open the Anaconda Prompt and clone the OCTolyzer repository.
+2. After downloading Miniconda, navigate and open the Anaconda Prompt and clone the OCTolyzer repository.
 
 ```
 git clone https://github.com/jaburke166/OCTolyzer.git
 ```
 
-3. Create environment and install dependencies to create your own environment in Miniconda.
+Alternatively, download the repository as a `.zip` file and extract the contents into a folder called `OCTolyzer`.
+
+3. Create environment and install dependencies to create your own environment in Miniconda on Anaconda Prompt.
 
 ```
 conda create -n oct-analysis python=3.11 -y

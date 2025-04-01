@@ -12,8 +12,22 @@ import shutil
 import pandas as pd
 import numpy as np
 from pathlib import Path, PosixPath, WindowsPath
-from octolyzer import utils
+from octolyzer import key_descriptions, utils
 
+
+KEY_LAYER_DICT = {"ILM": "Inner Limiting Membrane",
+                  "RNFL": "Retinal Nerve Fiber Layer",
+                  "GCL": "Ganglion Cell Layer",
+                  "IPL": "Inner Plexiform Layer",
+                  "INL": "Inner Nuclear Layer",
+                  "OPL": "Outer Plexiform Layer",
+                  "ELM": "External Limiting Membrane", # Outer nuclear layer
+                  "PR1": "Photoreceptor Layer 1",
+                  "PR2": "Photoreceptor Layer 2",
+                  "RPE": "Retinal Pigment Epithelium",
+                  "BM": "Bruch's Membrane Complex", 
+                  "CHORupper": "Choroid - Sclera boundary",
+                  "CHORlower": "Bruch's Membrane - Choroid boundary"}
 
 # Load in previously analysed results (if saved out)
 def _load_files(fname_path, logging_list=[]):
@@ -274,6 +288,12 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
 
     # Remove any rows in all_oct_macula_df which are just -1s, i.e. fovea was not detected
     all_oct_macula_df = all_oct_macula_df[~(all_oct_macula_df.iloc[:, 1:]==-1).all(axis=1)]
+
+    # Layer keys, ordered anaomtically
+    key_df = pd.DataFrame({"key":KEY_LAYER_DICT.keys(),
+                        "layer":KEY_LAYER_DICT.values()})
+    if not analyse_choroid:
+        key_df = key_df[~key_df.key.str.contains("CHOR")]
   
     # save out global metadata and measurements
     with pd.ExcelWriter(os.path.join(save_directory, f'analysis_output.xlsx')) as writer:
@@ -307,7 +327,20 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
             all_oct_peri_df.to_excel(writer, sheet_name='OCT_Peripapillary_measurements', index=False)
 
         # Save out metadata key and descriptions
-        utils.metakey_df.to_excel(writer, sheet_name='metadata_keys', index=False)
+        key_descriptions.metakey_df.to_excel(writer, sheet_name='metadata_keys', index=False)
+
+        # write out layer keys
+        key_df.to_excel(writer, sheet_name="layer_keys", index=False)
+
+        # Save out column descriptions if necessary
+        if all_oct_macula_df.shape[0] > 0:
+            key_descriptions.linescanradial_df.to_excel(writer, sheet_name='OCT_Linescan_keys', index=False)
+        if all_oct_ppole_df.shape[0] > 0:
+            key_descriptions.ppole_df.to_excel(writer, sheet_name='OCT_Ppole_ETDRS_keys', index=False)
+        if all_oct_peri_df.shape[0] > 0:
+            key_descriptions.peripapillary_df.to_excel(writer, sheet_name='SLOCT_Peripapillary_keysO_keys', index=False)
+        if all_slo_df.shape[0] > 0:
+            key_descriptions.slo_df.to_excel(writer, sheet_name='SLO_keys', index=False)
    
     # save out log
     with open(os.path.join(save_directory, f"analysis_log.txt"), "w") as f:
