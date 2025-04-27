@@ -14,6 +14,7 @@ import numpy as np
 import torch
 import cv2
 import scipy
+import shutil
 import utils
 from PIL import Image, ImageOps
 
@@ -81,6 +82,9 @@ def analyse(path,
 
         # By default, our linescan ROI distance is 1500 microns either side of fovea (microns)
         macula_rum = 3000
+
+        # by default, we don't have any manual annotations
+        manual_annotations = []
         
     else:
         # flags for choroid analysis, preprocessing bscans
@@ -109,6 +113,10 @@ def analyse(path,
         # User-specified ROI distance either side of fovea
         macula_rum = param_dict['linescan_roi_distance']
 
+        # Automatically detected manual annotations in .vol results folder. Will be
+        # an empty list if none detected
+        manual_annotations = param_dict['manual_annotations']
+
     # Default parameters for thickness maps: ETDRS grid and optional square grid
     etdrs_kwds = {"etdrs_microns":[1000,3000,6000]}
     square_kwds = {"N_grid":8, "grid_size":7000}
@@ -126,25 +134,35 @@ def analyse(path,
     ret_measure_type = 'vertical' # Measuring retina column-wise (via A-scans) according to most devices/literature
     
     # Double check existence of core save_path and create 
-    fname_type = os.path.split(path)[1]
-    fname = fname_type.split(".")[0]
+    _, fname_type = os.path.split(path)
+    fname = os.path.splitext(fname_type)[0]
     if not os.path.exists(save_path):
         os.mkdir(save_path)
+    dir_path = save_path
     save_path = os.path.join(save_path, fname)
     if not os.path.exists(save_path):
         os.mkdir(save_path)
-    dirpath = os.path.split(save_path)[0]
 
     # segmentation directory
     if collate_segmentations:
-        segmentation_directory = os.path.join(dirpath, "oct_segmentations")
+        segmentation_directory = os.path.join(dir_path, "oct_segmentations")
         if not os.path.exists(segmentation_directory):
             os.mkdir(segmentation_directory)
 
-    msg = f"\nANALYSING SLO+OCT OF {fname}.\n"
+    # Logging
+    msg = f"\n\nANALYSING SLO+OCT OF {fname}.\n"
     logging_list.append(msg)
     if verbose:
         print(msg)
+
+    # Log when there are detected manual annotations to prepare end-user
+    if len(manual_annotations) > 0:
+        msg = f"\nDetected manual annotations for {fname}. Note that if SLO annotations exist but analyse_slo is 0, these are ignored.\n"
+        logging_list.append(msg)
+        if verbose:
+            print(msg)  
+
+    # Load data from .vol
     output = utils.load_volfile(path, preprocess=preprocess_data*analyse_choroid, verbose=verbose,
                                 custom_maps=custom_maps, logging=logging_list)
     bscan_data, metadata, (slo, slo_acq, slo_at_fovea), layer_pairwise, logging_list = output
@@ -163,11 +181,13 @@ def analyse(path,
     else:
         slo_location = "Macula"
     eye = metadata["eye"]
+    scan_type = metadata["bscan_type"]
 
-    # By default, we don't have any manual annotations of retinal vessels/fovea
+    # By default, we don't have any manual annotations
     new_avodmap_flag = False
     new_binary_flag = False
-    new_fovea_flag = False
+    new_slo_fovea_flag = False
+    new_oct_fovea_flag = False
 
     # Flag only used if fovea is manually edited and we are analysing a peripapillary scan, as this influences peripapillary measurements
     oct_metrics = False
@@ -175,7 +195,7 @@ def analyse(path,
     
     # By default we won't compute slo_metrics, unless we have any new manual annotations
     slo_metrics = False
-    slo_recompute = new_avodmap_flag + new_binary_flag + new_fovea_flag
+    slo_recompute = new_avodmap_flag + new_binary_flag + new_slo_fovea_flag
     if analyse_slo_flag:
         slo_metrics = True
 
@@ -184,31 +204,43 @@ def analyse(path,
     have_slo = True
 
     # OCT analysis is the priority, so skip SLO analysis if unexpected error occurs
+    fname_output_path = os.path.join(save_path,f'{fname}_output.xlsx')
+    slo_flag = have_slo and (analyse_slo_flag or scan_location == 'peripapillary')
+
+    # Check if manual annotation exists
+    oct_fovea_nii_path = os.path.join(save_path, f"{fname}_oct_fovea_map.nii.gz")
+    if os.path.exists(oct_fovea_nii_path):
+        new_oct_fovea_flag = True
+
+    # This should only be checked for under certain conditions, i.e. if we're analysing SLO
+    # or if we're analysing peripapillary scan
+    if slo_flag:
+        binary_nii_path = os.path.join(save_path, f"{fname}_slo_binary_map.nii.gz")
+        avod_nii_path = os.path.join(save_path, f"{fname}_slo_avod_map.nii.gz")
+        slo_fovea_nii_path = os.path.join(save_path, f"{fname}_slo_fovea_map.nii.gz")
+        if os.path.exists(avod_nii_path):
+            new_avodmap_flag = True
+        if os.path.exists(binary_nii_path):
+            new_binary_flag = True
+        if os.path.exists(slo_fovea_nii_path):
+            new_slo_fovea_flag = True
+    slo_recompute = new_avodmap_flag + new_binary_flag + new_slo_fovea_flag
+
+
     try:
-        fname_output_path = os.path.join(save_path,f'{fname}_output.xlsx')
-        if have_slo and (analyse_slo_flag or scan_location == 'peripapillary'):
-            
-            # Check if manual annotation exists - this is copied from sloctolyzer/main.py
-            binary_nii_path = os.path.join(save_path, f"{fname}_slo_binary_map.nii.gz")
-            avod_nii_path = os.path.join(save_path, f"{fname}_slo_avod_map.nii.gz")
-            fovea_nii_path = os.path.join(save_path, f"{fname}_slo_fovea_map.nii.gz")
-            if os.path.exists(avod_nii_path):
-                new_avodmap_flag = True
-            if os.path.exists(binary_nii_path):
-                new_binary_flag = True
-            if os.path.exists(fovea_nii_path):
-                new_fovea_flag = True
-            slo_recompute = new_avodmap_flag + new_binary_flag + new_fovea_flag
-                
+        # This is only not satisfied when either we are not analysing SLO, or when we have an OCT manual annotation and
+        # NOT any SLO manual annotatons 
+        if slo_flag and (not new_oct_fovea_flag or slo_recompute):
+           
             # Load in manual annotations if they exist, otherwise skip and start from scratch
             segmentation_dict = {}
-            if (new_avodmap_flag or new_binary_flag or new_fovea_flag) and os.path.exists(fname_output_path) :     
-                msg = "\nDetected manual annotation of"
+            if slo_recompute and os.path.exists(fname_output_path):     
+                msg = "\nDetected SLO manual annotation of the "
                 ind_df = pd.read_excel(fname_output_path, sheet_name="metadata")
             
                 # Load in annotations if exists. If not, load in already saved segmentation
                 if new_avodmap_flag:
-                    msg += " artery-vein-optic disc mask, "
+                    msg += "artery-vein-optic disc mask, "
                     new_avodmap = utils.load_annotation(avod_nii_path)
                 else:
                     avodmap = np.array(Image.open(os.path.join(save_path, f"{fname}_slo_avod_map.png")))
@@ -219,16 +251,16 @@ def analyse(path,
                 
                 # Same for binary vessel segmentations
                 if new_binary_flag:
-                    msg += " binary vessel mask, "
+                    msg += "binary vessel mask, "
                     new_binary = utils.load_annotation(binary_nii_path, binary=True)
                 else:
                     new_binary = np.array(ImageOps.grayscale(Image.open(os.path.join(save_path, f"{fname}_slo_binary_map.png"))))/255
     
                 # If loading new fovea, update SLO metadata
-                if new_fovea_flag:
-                    msg += " fovea mask."
-                    new_fovea = utils.load_annotation(fovea_nii_path, binary=True)
-                    cv2.imwrite(os.path.join(save_path,f"{fname}_slo_fovea_map.png"), 255*new_fovea)
+                if new_slo_fovea_flag:
+                    msg += "fovea mask."
+                    new_fovea = utils.load_annotation(slo_fovea_nii_path, binary=True)
+                    cv2.imwrite(os.path.join(save_path,f"{fname}_slo_fovea_map.png"), (255*new_fovea).astype(np.uint8))
                     oct_metrics = True if scan_location == "peripapillary" else False
                     ind_df.loc[0,"slo_missing_fovea"] = False
                 else:
@@ -257,12 +289,23 @@ def analyse(path,
             logging_list.extend(slo_logging_list)
             slo_avimout = slo_segmentations[-1]
     
-            if new_fovea_flag:
+            if new_slo_fovea_flag:
                 slo_meta_df.loc[0,"slo_missing_fovea"] = False
                 slo_meta_df.loc[0,["slo_fovea_x", "slo_fovea_y"]] = new_fovea[0], new_fovea[1]
             slo_missing_fovea = slo_meta_df.slo_missing_fovea.values[0].astype(bool)
             fovea_at_slo = slo_meta_df[["slo_fovea_x", "slo_fovea_y"]].values[0].astype(int)
+
+        # This should only be satisfied when there is an OCT B-scan fovea manual annotation.
+        # Only need the SLO measurements outputted
+        elif slo_flag and (new_oct_fovea_flag and not slo_recompute):
+            slo_meta_df, slo_measure_dfs, log = collate_data.load_files(save_path, 
+                                                                    logging_list=[], 
+                                                                    analyse_square=param_dict['analyse_square_grid'],
+                                                                    only_slo=1)
+            slo_analysis_output = slo_meta_df, slo_measure_dfs, slo, [], log
+            fovea_at_slo = slo_meta_df[["slo_fovea_x", "slo_fovea_y"]].values[0].astype(int)
             
+        # If we're not analysing the SLO at all
         else:
             slo_analysis_output = None
     
@@ -277,25 +320,20 @@ def analyse(path,
         have_slo = False
         slo_analysis_output = None
 
-    # If recomputed SLO metrics with manual annotations, OCT metrics will be recomputed if scan is disc-centred, loaded in if macula-centred.
+    # If recomputed SLO metrics with manual annotations, OCT metrics will be recomputed if scan is disc-centred, 
+    # loaded in if macula-centred, unless a manual annotation for the OCT B-scan fovea has been inputted.
     # Predicted SLO fovea doesn't impact macula-centred metrics, as Choroidalyzer is used to detect B-scan fovea, 
     # which is cross-references onto SLO.
-    if slo_recompute:
+    if slo_flag and slo_recompute:
 
         # Renaming manual annotation files to prevent automatically re-computing metrics when they've already been used.
         msg = f"Adding suffix '_used' to .nii.gz files to prevent automatic re-computing when re-running again."
         if new_avodmap_flag:
-            if os.path.exists(avod_nii_path.split(".")[0]+"_used.nii.gz"):
-                os.remove(avod_nii_path.split(".")[0]+"_used.nii.gz")
-            os.rename(avod_nii_path, avod_nii_path.split(".")[0]+"_used.nii.gz")
+            os.rename(avod_nii_path, avod_nii_path.split('.nii.gz')[0]+"_used.nii.gz")
         if new_binary_flag:
-            if os.path.exists(binary_nii_path.split(".")[0]+"_used.nii.gz"):
-                os.remove(binary_nii_path.split(".")[0]+"_used.nii.gz")
-            os.rename(binary_nii_path, binary_nii_path.split(".")[0]+"_used.nii.gz")
-        if new_fovea_flag:
-            if os.path.exists(fovea_nii_path.split(".")[0]+"_used.nii.gz"):
-                os.remove(fovea_nii_path.split(".")[0]+"_used.nii.gz")
-            os.rename(fovea_nii_path, fovea_nii_path.split(".")[0]+"_used.nii.gz")
+            os.rename(binary_nii_path, binary_nii_path.split('.nii.gz')[0]+"_used.nii.gz")
+        if new_slo_fovea_flag:
+            os.rename(slo_fovea_nii_path, slo_fovea_nii_path.split('.nii.gz')[0]+"_used.nii.gz")
         if verbose:
             print(msg)
         logging_list.append(msg)
@@ -315,12 +353,11 @@ def analyse(path,
                         finally:
                             df.to_excel(writer, sheet_name=f'slo_measurements_{z}', index=False)
 
-        # Load OCT measurements if macula-centred
-        if scan_location != 'peripapillary':
-            ind_df, _, oct_dfs, log = collate_data._load_files(save_path, logging_list=[])
+        # Load OCT measurements and return if macula-centred, unless we have an OCT fovea manual annotation
+        if scan_location == 'macular' and (not new_oct_fovea_flag or scan_type == 'Ppole'):
+            ind_df, oct_dfs, log = collate_data.load_files(save_path, logging_list=[], only_oct=1, verbose=1)
             oct_analysis_output = ind_df, slo, bscan_data, oct_dfs, [], log
             return slo_analysis_output, oct_analysis_output
-
 
     # Alert to user we are analysing OCT from here on
     msg = f"\n\nANALYSING OCT of {fname}.\n"
@@ -328,40 +365,95 @@ def analyse(path,
     if verbose:
         print(msg)
 
-    # Forcing model instantiation if unspecified
-    # Choroid segmentation models - macular B-scans
-    if choroidalyzer is None or type(choroidalyzer) != choroidalyzer_inference.Choroidalyzer:
-        msg = "Loading models..."
+    # Check if previous measurements exist for OCT, load in and return if so, unless manual annotation
+    # of OCT fovea exists and the scan type is not Ppole OR the scan is peripapillary
+    if os.path.exists(fname_output_path) and (not new_oct_fovea_flag or scan_type == 'Ppole') and not slo_flag:
+        ind_df, oct_dfs, log = collate_data.load_files(save_path, logging_list=[], only_oct=1, verbose=1)
+        oct_analysis_output = ind_df, slo, bscan_data, oct_dfs, [], log
+        return slo_analysis_output, oct_analysis_output
+    
+    # Check to see if OCT fovea manual annotation has been inputted, and skip model instantiation and
+    # segmentation. Only valid for non-Ppole macular scans for the moment.
+    if new_oct_fovea_flag and scan_type not in ['Ppole', 'Peripapillary']:
+
+        # Output to end-user detection of OCT B-scan fovea manual annotation
+        msg = f"Detected manual annotation of OCT B-scan fovea for macular {scan_type}. Loading in segmentations and recomputing metrics."
+        if verbose:
+            print(msg)
+        logging_list.append(msg)
+
+        # Load in new fovea manual annotation and save out, collect new fovea xy-coordinate
+        fmask = utils.load_annotation(oct_fovea_nii_path, binary=True)
+        fovea = fov_inference._get_fovea(fmask)
+        foveas = fovea.reshape(1,-1)
+        fovea_slice_num = 0
+
+        # Load in available segmentations if analyse_choroid
+        if analyse_choroid:
+            try:
+                vmask = np.array(ImageOps.grayscale(Image.open(os.path.join(save_path, f"{fname}_chorvessel_mask.png"))))/255
+                region_df = pd.read_excel(fname_output_path, sheet_name=f'segmentations_{scan_type}')
+                rtraces = utils.load_trace(region_df)
+                rmask = utils.rebuild_mask(rtraces, img_shape=bscan_data[0].shape)
+                rvfmasks = np.concatenate([mask[np.newaxis] for mask in [rmask,
+                                                                        vmask, 
+                                                                        fmask]], axis=0).reshape(1, 3, *bscan_data.shape[1:])
+            except:
+                msg = 'Unable to locate choroid segmentations. It appears analyse_choroid=0 in previous runs.'
+                if verbose:
+                    print(msg)
+                logging_list.append(msg)
+        else:
+            rvfmasks = np.concatenate([mask[np.newaxis] for mask in [np.zeros_like(fmask), 
+                                                                     np.zeros_like(fmask), 
+                                                                     fmask]], axis=0).reshape(1, 3, *bscan_data.shape[1:])
+
+        # Rename manual annotation so it isn't automatically detected upon re-running
+        msg = f"Adding suffix '_used' to .nii.gz file to prevent automatic re-computing when re-running again.\n"
+        os.rename(oct_fovea_nii_path, oct_fovea_nii_path.split('.nii.gz')[0]+"_used.nii.gz")
+        if verbose:
+            print(msg)
+        logging_list.append(msg)
+
+    # If OCT fovea manual annotations are by accident in Ppole/Peripapillary B-scans, load in OCT measurements
+    # and return as we do not support OCT fovea annotation for these scan types (invalid for peripapillary and not yet
+    # implemented for Ppole)
+    elif new_oct_fovea_flag and scan_type in ['Ppole', 'Peripapillary']:
+        ind_df, oct_dfs, log = collate_data.load_files(save_path, logging_list=[], only_oct=1, verbose=1)
+        oct_analysis_output = ind_df, slo, bscan_data, oct_dfs, [], log
+        return slo_analysis_output, oct_analysis_output
+        
+    else:
+        # Forcing model instantiation if unspecified
+        # Choroid segmentation models - macular B-scans
+        if choroidalyzer is None or type(choroidalyzer) != choroidalyzer_inference.Choroidalyzer:
+            msg = "Loading models..."
+            logging_list.append(msg)
+            if verbose:
+                print(msg)
+            choroidalyzer = choroidalyzer_inference.Choroidalyzer()
+        # DeepGPET for peripapillary B-scans
+        if deepgpet is None or type(deepgpet) != deepgpet_inference.DeepGPET:
+            deepgpet = deepgpet_inference.DeepGPET()
+
+        # Segment choroid
+        # If macular-centred, use Choroidalyzer. If optic disc-centred, use deepGPET
+        if analyse_choroid:
+            msg = "Segmenting choroid and fovea..."
+        else:
+            msg = "Detecting fovea for grid/ROI alignment (through use of Choroidalyzer)..."
         logging_list.append(msg)
         if verbose:
             print(msg)
-        choroidalyzer = choroidalyzer_inference.Choroidalyzer()
-    # DeepGPET for peripapillary B-scans
-    if deepgpet is None or type(deepgpet) != deepgpet_inference.DeepGPET:
-        deepgpet = deepgpet_inference.DeepGPET()
-
-    # Segment choroid
-    # If macular-centred, use Choroidalyzer. If optic disc-centred, use deepGPET
-    scan_type = metadata["bscan_type"]
-    if analyse_choroid:
-        msg = "Segmenting choroid and fovea..."
-    else:
-        msg = "Detecting fovea for grid/ROI alignment (through use of Choroidalyzer)..."
-    logging_list.append(msg)
-    if verbose:
-        print(msg)
-    if scan_location == "macular":
-        rvfmasks, foveas = choroidalyzer.predict_list(bscan_data, soft_pred=True)
-    elif scan_location == "peripapillary":
-        rvfmasks = deepgpet.predict_list(bscan_data, soft_pred=True)
-
-    # For execution time of the segmentation
-    # return None
-    
-    # Resolve fovea detection. If at origin then threshold too high, apply filter function and warn user.
-    if scan_location != "peripapillary":
-        fovea_slice_num, fovea, fov_log = utils._get_fovea(rvfmasks, foveas, N_scans, scan_type, logging=[])
-        logging_list.extend(fov_log)
+        if scan_location == "macular":
+            rvfmasks, foveas = choroidalyzer.predict_list(bscan_data, soft_pred=True)
+        elif scan_location == "peripapillary":
+            rvfmasks = deepgpet.predict_list(bscan_data, soft_pred=True)
+        
+        # Resolve fovea detection. If at origin then threshold too high, apply filter function and warn user.
+        if scan_location != "peripapillary":
+            fovea_slice_num, fovea, fov_log = utils._get_fovea(rvfmasks, foveas, N_scans, scan_type, logging=[])
+            logging_list.extend(fov_log)
 
     # Detect retinal layer keys
     pairwise_keys = list(layer_pairwise.keys())
@@ -398,7 +490,8 @@ def analyse(path,
             fig.tight_layout(pad = 0)
             fig.savefig(os.path.join(save_path, f"{fname}_octseg.png"), bbox_inches="tight")
             if collate_segmentations:
-                fig.savefig(os.path.join(segmentation_directory, f"{fname}.png"), bbox_inches="tight")
+                shutil.copy(os.path.join(save_path, f"{fname}_octseg.png"),
+                            os.path.join(segmentation_directory, f'{fname}.png'))
             plt.close()
 
             # For a single B-scan, measure thickness and area of all layers, and CVI for choroid
@@ -683,12 +776,18 @@ Skipping file and outputting -1s for measurements of each layer."""
             fig.tight_layout(pad = 0)
             fig.savefig(os.path.join(save_path, f"{fname}_octseg.png"), bbox_inches="tight")
             if collate_segmentations:
-                fig.savefig(os.path.join(segmentation_directory, f"{fname}.png"), bbox_inches="tight")
-            plt.close() 
+                shutil.copy(os.path.join(save_path, f"{fname}_octseg.png"),
+                                os.path.join(segmentation_directory, f'{fname}.png'))
+            plt.close()
             msg = f"\nSegmented B-scan visualisation saved out.\n"
             logging_list.append(msg)
             if verbose:
                 print(msg)
+
+            # Save out segmentation mask for the fovea
+            fmask = np.zeros((*bscan_data[0].shape, 3))
+            cv2.circle(fmask, foveas[0], 30, (0,0,255), -1)
+            cv2.imwrite(os.path.join(save_path, f"{fname}_oct_fovea_map.png"), fmask[...,-1].astype(np.uint8))
 
         # H-line/V-line Measurement metadata
         horizontal = [False, True][scan_type=="H-line"]
@@ -922,8 +1021,7 @@ NOTE:Subregion volumes will not be computed for CVI map."""
         # Plot core maps into single plot and save out
         if collate_segmentations and map_flags[0]==1:
             fig = grid.plot_multiple_grids(ctmap_args)
-            fig.savefig(os.path.join(save_path, fname+'.png'), bbox_inches="tight", transparent=False)
-            fig.savefig(os.path.join(segmentation_directory, fname+'.png'), bbox_inches="tight", transparent=False)
+            fig.savefig(os.path.join(save_path, fname+'_map_compilation.png'), bbox_inches="tight", transparent=False)
         plt.close()
 
         # Add choroid Ppole traces to retinal segmentations
@@ -988,6 +1086,12 @@ NOTE:Subregion volumes will not be computed for CVI map."""
                 utils.plot_composite_volume(bscan_data, vmasks, fovea_slice_num, 
                                             layer_pairwise, reshape_idx, 
                                             analyse_choroid, fname, save_path)
+                
+            if N_scans in [61, 31, 45]:
+                if collate_segmentations:
+                    shutil.copy(os.path.join(save_path, f"{fname}_volume_octseg.png"),
+                                os.path.join(segmentation_directory, f'{fname}.png'))
+                
             else:
                 msg = f'Volume scan with {N_scans} B-scans cannot currently be reshaped into single, composite image.'
                 logging_list.append(msg)
@@ -1209,7 +1313,7 @@ NOTE:Subregion volumes will not be computed for CVI map."""
     # Organise outputs from analysis script
     oct_measures = measure_dfs.copy()
     oct_segmentations_maps = [seg_df]
-    if scan_location != 'peripapillary':
+    if scan_location != 'peripapillary' and analyse_choroid:
         oct_segmentations_maps.append(vmasks)
     if scan_type == "Ppole":
         oct_segmentations_maps.append(map_dict)

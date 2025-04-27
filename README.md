@@ -256,9 +256,11 @@ OCTolyzer can run reasonably fast using a standard, GPU-less Windows laptop CPU.
 
 ## Fixing segmentation errors
 
-We do not have any automatic functionality within OCTolyzer to correct any segmentation errors. Thus, we rely on the user to identify any visible problems with vessel classification.
+We do not have any automatic functionality within OCTolyzer to correct any layer segmentation errors. Thus, we rely on the user to identify any visible problems with vessel classification.
 
 However, we do provide functionality to manually correct en face retinal vessel segmentations and foveola centralis on the SLO via ITK-Snap. There are instructions on using ITK-Snap for manual annotations in `instructions/SLO_manual_annotations` which describe how to setup ITK-Snap and use it to correct the binary vessel mask, and/or the artery-vein-optic disc segmentation mask, and/or the fovea segmentation mask. 
+
+Additonally, we also provide functionality to manually correct the foveola centralis on OCT B-scans for single-line, macular B-scans (currently not supported for Ppole scans and irrelevant for peripapillary scans). The procedure for this follows the exact same as manually correcting the foveola centralis on SLO images.
 
 Once the corrected segmentations are saved out as `.nii.gz` files in the same folder with the original `.png` segmentation mask(s), the pipeline can be run again and OCTolyzer should automatically identify these additional manual annotations and re-compute the features!
 
@@ -318,9 +320,17 @@ If you wish to use this toolkit please consider citing our work using the follow
 
 ## Updates
 
+### 27/04/2025
+
+* Included functionality to manually correct the foveola centralis on the OCT B-scan of single-line, macular B-scans. See [Fixing segmentation errors](#fixing-segmentation-errors) for more information.
+
+* Added two `.pptx` files in `instructions/`, created to help train and inform end-users at the University of Edinburgh on how to use OCTolyzer, with a description on OCTolyer's pipeline, inputs, outputs and common FAQs.
+
 ### 25/03/2025
 
 * Improved efficiency of feature measurement pipeline for OCTolyzer's SLO analysis suite, replacing [AutoMorph's](https://github.com/rmaphoh/AutoMorph) vessel width measurements with those used by [AutoMorphalyzer](https://github.com/jaburke166/AutoMorphalyzer).
+
+* Included high-level descriptions of every output field in the measurement data sheets, the raw DataFrames can be found in `octolyzer/key_descriptions.py`.
 
 ### 02/02/2025
 

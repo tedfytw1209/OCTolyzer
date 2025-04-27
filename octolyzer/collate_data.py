@@ -30,13 +30,14 @@ KEY_LAYER_DICT = {"ILM": "Inner Limiting Membrane",
                   "CHORlower": "Bruch's Membrane - Choroid boundary"}
 
 # Load in previously analysed results (if saved out)
-def _load_files(fname_path, logging_list=[]):
+def load_files(fname_path, logging_list=[], analyse_square=0, only_slo=0, only_oct = 0, verbose=1):
     '''
     For any files detected as previously analysed SLO, try load them for
     collating files
     '''
     msg = "Loading in measurements..."
-    print(msg)
+    if verbose:
+        print(msg)
     logging_list.append(msg)
     if isinstance(Path(fname_path), PosixPath):
         fname = str(fname_path).split('/')[-1]
@@ -46,41 +47,52 @@ def _load_files(fname_path, logging_list=[]):
 
     # Load metadata
     meta_df = pd.read_excel(output_fname, sheet_name="metadata")
+    outputs = [meta_df]
     oct_dfs = []
     slo_dfs = []
 
     # Load in SLO measurements
-    if meta_df.bscan_type.iloc[0] == "Peripapillary":
-        for r in ["B", "C", "whole"]:
+    if not only_oct:
+        if meta_df.bscan_type.iloc[0] == "Peripapillary":
+            for r in ["B", "C", "whole"]:
+                try:
+                    df = pd.read_excel(output_fname, sheet_name=f"slo_measurements_{r}")
+                except:
+                    df = pd.DataFrame()
+                slo_dfs.append(df)
+        else:
             try:
-                df = pd.read_excel(output_fname, sheet_name=f"slo_measurements_{r}")
+                df = pd.read_excel(output_fname, sheet_name=f"slo_measurements_whole")
             except:
                 df = pd.DataFrame()
             slo_dfs.append(df)
-    else:
-        try:
-            df = pd.read_excel(output_fname, sheet_name=f"slo_measurements_whole")
-        except:
-            df = pd.DataFrame()
-        slo_dfs.append(df)
+        outputs.append(slo_dfs)
 
     # Load in OCT measurements
-    if meta_df.bscan_type.iloc[0] == "Ppole":
-        keys = ['etdrs_measurements', 'etdrs_volume_measurements', 'square_measurements', 'square_volume_measurements']
-    else:
-        keys = ['oct_measurements']
-    for key in keys:
-        try:
-            df = pd.read_excel(output_fname, sheet_name=key)
-            oct_dfs.append(df)
-        except:
-            print(f'{key} does not exist. Skipping.')
+    if not only_slo:
+        if meta_df.bscan_type.iloc[0] == "Ppole":
+            if analyse_square:
+                keys = ['etdrs_measurements', 'etdrs_volume_measurements', 'square_measurements', 'square_volume_measurements']
+            else:
+                keys = ['etdrs_measurements', 'etdrs_volume_measurements']
+        else:
+            keys = ['oct_measurements']
+        for key in keys:
+            try:
+                df = pd.read_excel(output_fname, sheet_name=key)
+                oct_dfs.append(df)
+            except:
+                if verbose:
+                    print(f'{key} does not exist. Skipping.')
+        outputs.append(oct_dfs)
     
     msg = "Successfully loaded in all measurements!\n"
-    print(msg)
+    if verbose:
+        print(msg)
     logging_list.append(msg)
+    outputs.append(logging_list)
 
-    return meta_df, slo_dfs, oct_dfs, logging_list
+    return outputs
 
 
 
@@ -274,7 +286,7 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
         # Concenate metadata to global dataframe of metadata, robust to suppress NaN warnings
         # from different Bscan types having different columns
         if (len(all_ind_df)) > 0 & (len(ind_df) > 0):
-            all_ind_df = pd.concat([all_ind_df.fillna("NA"), ind_df.fillna("NA")], axis=0)
+            all_ind_df = pd.concat([all_ind_df.fillna(""), ind_df.fillna("")], axis=0)
         else:
             all_ind_df = ind_df.copy()
 
@@ -285,6 +297,22 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
     all_oct_sq_ppole_df = all_oct_sq_ppole_df.reset_index(drop=True)
     all_oct_peri_df = all_oct_peri_df.reset_index(drop=True)
     all_oct_macula_df = all_oct_macula_df.reset_index(drop=True)
+
+    # Define columns which indicate any processing failures
+    fail_cols = []
+    if all_oct_macula_df.shape[0] > 0:
+        fail_cols.extend(['bscan_missing_fovea', 
+                          'slo_missing_fovea', 
+                          'missing_retinal_oct_linescan_measurements',
+                          'missing_choroid_oct_linescan_measurements',])
+    if all_oct_peri_df.shape[0] > 0:
+        fail_cols.extend(['optic_disc_overlap_warning'])
+    if 'FAILED' in all_ind_df.columns:
+        fail_cols.append('FAILED')
+    fail_df = all_ind_df[all_ind_df[fail_cols].any(axis=1)][['Filename'] + fail_cols]
+    fail_df.replace(1, True, inplace=True)
+    fail_df.replace(False, '', inplace=True)
+    fail_df.replace(0, '', inplace=True)   
 
     # Remove any rows in all_oct_macula_df which are just -1s, i.e. fovea was not detected
     all_oct_macula_df = all_oct_macula_df[~(all_oct_macula_df.iloc[:, 1:]==-1).all(axis=1)]
@@ -325,6 +353,10 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
             
         if all_oct_peri_df.shape[0] > 0:
             all_oct_peri_df.to_excel(writer, sheet_name='OCT_Peripapillary_measurements', index=False)
+
+        # Save out datasheet specifying any files which failed for some reason
+        if fail_df.shape[0] > 0:
+            fail_df.to_excel(writer, sheet_name='Failed', index=False)
 
         # Save out metadata key and descriptions
         key_descriptions.metakey_df.to_excel(writer, sheet_name='metadata_keys', index=False)

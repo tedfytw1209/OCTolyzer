@@ -126,11 +126,12 @@ def run(args):
         
         fname_path = os.path.join(save_directory, fname)
         output_fname = os.path.join(fname_path, f"{fname}_output.xlsx")
-        slo_mannotations = ( len(list(Path(fname_path).glob("*.nii.gz"))) - len(list(Path(fname_path).glob("*_used.nii.gz"))) )  > 0
-        param_dict['manual_annotation'] = int(slo_mannotations)
-        if os.path.exists(output_fname) and not slo_mannotations:
-            print(f"Previously analysed {fname}.")
-            ind_df, slo_dfs, oct_dfs, log = collate_data._load_files(fname_path, logging_list=[])
+        slo_manual_annotations = list((set(Path(fname_path).glob(f"{fname}*slo*.nii.gz"))).difference(set(Path(fname_path).glob(f"{fname}*slo*_used.nii.gz"))))
+        oct_manual_annotations = list((set(Path(fname_path).glob(f"{fname}*oct*.nii.gz"))).difference(set(Path(fname_path).glob(f"{fname}*oct*_used.nii.gz"))))
+        param_dict['manual_annotations'] = oct_manual_annotations + slo_manual_annotations
+        if os.path.exists(output_fname) and len(param_dict['manual_annotations']) == 0:
+            print(f"\nPreviously analysed {fname}.")
+            ind_df, slo_dfs, oct_dfs, log = collate_data.load_files(fname_path, logging_list=[], analyse_square=param_dict['analyse_square_grid'])
             oct_slo_result_dict[fname_type]['metadata'] = ind_df
             if analyse_slo_flag:
                 oct_slo_result_dict[fname_type]['slo'] = slo_dfs

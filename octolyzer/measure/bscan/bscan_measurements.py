@@ -109,22 +109,14 @@ def compute_measurement(reg_mask,
     micron_measures = np.array([i * delta_micron for i in delta_i])
 
     # Locate coordinates along the upper boundary at equal spaces away from foveal pit until macula_rum
-    curve_indexes = [curve_location(top_chor, distance=d, ref_idx=ref_idx, scale=scale, verbose=False) for d in micron_measures]
+    curve_indexes = [curve_location(top_chor, distance=d, ref_idx=ref_idx, scale=scale) for d in micron_measures]
 
-    # To catch if we cannot make measurement macula_rum either side of reference point, return -1s.
-    if (None, np.nan) in curve_indexes or (np.nan, None) in curve_indexes:
-        
-        error_left, error_right = None,None
-        if (None, np.nan) in curve_indexes:
-            error_left = "left"
-            error_side = 'left'
-        if (np.nan, None) in curve_indexes:
-            error_right = 'right'
-            error_side = 'right'
-        if error_left is not None and error_right is not None:
-            error_side = f"{error_left} and {error_right}"
-        msg = f"""        Segmentation not long enough for {macula_rum}um {error_side} of fovea.
-        Extend segmentation or reduce region of interest to prevent this from happening.
+    # Catch if this completely fails, then resort to segmentation failure (either due to fovea/layer detection)
+    if (None, np.nan) in curve_indexes or (np.nan, None) in curve_indexes or (None, None) in  curve_indexes:
+
+        msg = f"""        Segmentation failure for {macula_rum} micron ROI. 
+        Please check fovea detection or segmentation. 
+        Perhaps reducing the region of interest might prevent this from happening.
         Returning -1s."""
         logging_list.append(msg)
         if verbose:
@@ -159,7 +151,7 @@ def compute_measurement(reg_mask,
         
         # Logging to user about consequence of forcing measurement if segmentation isn#t long enough
         if st_flag + en_flag > 0 and not force_measurement:
-            msg = f"""        Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
+            msg = f"""        Segmentation not long enough for {macula_rum} microns.
         Extend segmentation or reduce region of interest to prevent this from happening.
         Returning -1s."""
             logging_list.append(msg)
@@ -176,14 +168,14 @@ def compute_measurement(reg_mask,
                 return measurements, logging_list
 
         elif force_measurement and st_flag==1:
-            msg = f"""        Segmentation not segmented long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
+            msg = f"""        Segmentation not segmented long enough for {macula_rum} microns.
         Reducing left-endpoint reference point by {-st_diff} pixels.
         Extend segmentation or reduce region of interest to prevent under-measurement."""
             logging_list.append(msg)
             if verbose:
                 print(msg)
         elif force_measurement and en_flag==1:
-            msg = f"""        Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
+            msg = f"""        Segmentation not long enough for {macula_rum} microns.
         Reducing right-endpoint reference point by {en_diff} pixels.
         Extend segmentation or reduce region of interest to prevent under-measurement."""
             logging_list.append(msg)
@@ -228,7 +220,7 @@ def compute_measurement(reg_mask,
     # Compute choroid area                               
     area_bnds_arr = np.swapaxes(boundary_pts[[0,-1], N_avgs//2], 0, 1).reshape(-1,2)
     if np.any(np.isnan(area_bnds_arr)):
-        msg = f"""        Segmentation not long enough for {macula_rum}um using {offset} pixel offset and {N_avgs} column averaging.
+        msg = f"""        Segmentation not long enough for {macula_rum} microns.
         Extend segmentation or reduce region of interest to prevent under-measurement.
         Returning -1s."""
         logging_list.append(msg)

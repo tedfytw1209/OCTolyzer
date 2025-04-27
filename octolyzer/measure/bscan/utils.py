@@ -142,7 +142,7 @@ def curve_length(curve, scale=(11.49,3.87)):
     return length
 
 
-def curve_location(curve, distance=2000, ref_idx=400, scale=(11.49,3.87), verbose=0):
+def curve_location(curve, distance=2000, ref_idx=400, scale=(11.49,3.87)):
     """
     Given a curve, what two coordinates are *distance* microns away from some coordinate indexed by
     *ref_idx*.
@@ -151,46 +151,38 @@ def curve_location(curve, distance=2000, ref_idx=400, scale=(11.49,3.87), verbos
     traversed in both axial directions.
     """
     # Work out number of microns per unit pixel movement
-    N = curve.shape[0]
-    
-    # Scale constants
-    xum_per_pix, yum_per_pix = scale
+    try:
+        N = curve.shape[0]
+        
+        # Scale constants
+        xum_per_pix, yum_per_pix = scale
 
-    # Calculate difference between pairwise consecutive coordinates of curve
-    diff_r = np.abs((curve[1 + ref_idx:] - curve[ref_idx:-1]).astype(np.float64))
-    diff_l = np.abs((curve[::-1][1 + (N - ref_idx):] - curve[::-1][(N - ref_idx):-1]).astype(np.float64))
+        # Calculate difference between pairwise consecutive coordinates of curve
+        diff_r = np.abs((curve[1 + ref_idx:] - curve[ref_idx:-1]).astype(np.float64))
+        diff_l = np.abs((curve[::-1][1 + (N - ref_idx):] - curve[::-1][(N - ref_idx):-1]).astype(np.float64))
 
-    # Convert pixel difference to micron difference
-    diff_r[:, 0] *= xum_per_pix
-    diff_r[:, 1] *= yum_per_pix
-    diff_l[:, 0] *= xum_per_pix
-    diff_l[:, 1] *= yum_per_pix
+        # Convert pixel difference to micron difference
+        diff_r[:, 0] *= xum_per_pix
+        diff_r[:, 1] *= yum_per_pix
+        diff_l[:, 0] *= xum_per_pix
+        diff_l[:, 1] *= yum_per_pix
 
-    # length per movement is euclidean distance between pairwise-micron-movements
-    length_l = np.sqrt(np.sum((diff_l) ** 2, axis=1))
-    cumsum_l = np.cumsum(length_l)
-    length_r = np.sqrt(np.sum((diff_r) ** 2, axis=1))
-    cumsum_r = np.cumsum(length_r)
+        # length per movement is euclidean distance between pairwise-micron-movements
+        length_l = np.sqrt(np.sum((diff_l) ** 2, axis=1))
+        cumsum_l = np.cumsum(length_l)
+        length_r = np.sqrt(np.sum((diff_r) ** 2, axis=1))
+        cumsum_r = np.cumsum(length_r)
 
-    # Work out largest index in cumulative length sum where it is smaller than *distance*
-    idx_l = ref_idx - np.argmin(cumsum_l < distance)
-    idx_r = ref_idx + np.argmin(cumsum_r < distance)
-    if (idx_l == ref_idx) and distance > 200:
-        msg = f"""Segmentation not long enough for {distance}um left of fovea.
-Extend segmentation or reduce region of interest to prevent this from happening.
-Returning -1s."""
-        if verbose:
-            print(msg)
-        return None, np.nan
-    if (idx_r == ref_idx) and distance > 200:
-        msg = f"""Segmentation not long enough for {distance}um right of fovea. 
-Extend segmentation or reduce region of interest to prevent this from happening.
-Returning -1s."""
-        if verbose:
-            print(msg)
-        return np.nan, None
-
-    return idx_l, idx_r
+        # Work out largest index in cumulative length sum where it is smaller than *distance*
+        idx_l = ref_idx - np.argmin(cumsum_l < distance)
+        idx_r = ref_idx + np.argmin(cumsum_r < distance)
+        if (idx_l == ref_idx) and distance > 200:
+            return None, np.nan
+        if (idx_r == ref_idx) and distance > 200:
+            return np.nan, None
+        return idx_l, idx_r
+    except:
+        return None, None
 
 
 def _check_offset(offset, offsets_lr, N_pts):

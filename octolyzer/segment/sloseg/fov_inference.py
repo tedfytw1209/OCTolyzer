@@ -108,7 +108,11 @@ def _get_fovea(pred, threshold=0.5):
     else:
         binmask = (pred > threshold).cpu().numpy()[0]
     if binmask.sum() == 0:
-        fovea = _process_fovea_prediction(pred)[0]
+        if isinstance(pred, np.ndarray):
+            torch_pred = torch.from_numpy(pred.astype(np.float32)).view(1,1,*pred.shape)
+        else:
+            torch_pred = pred.clone()
+        fovea = _process_fovea_prediction(torch_pred)[0]
         return fovea
 
     # Look at which of the region has the largest area, and set all other regions to 0

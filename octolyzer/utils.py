@@ -245,14 +245,10 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     # For peripapillary scans, we draw a circular ROI
     if bscan_type == "Peripapillary":
         peripapillary_coords = all_px_points[0].astype(int)
-        
-        if eye == "OD":
-            OD_center, OD_edge = peripapillary_coords[peripapillary_coords[:,0].argsort()]
-        elif eye == "OS":
-            OD_edge, OD_center = peripapillary_coords[peripapillary_coords[:,0].argsort()]
 
+        OD_edge, OD_center = peripapillary_coords
         circular_radius = np.abs(OD_center[0] - OD_edge[0])
-        circular_mask = grid.create_circular_mask(img_shape=(1536,1536), 
+        circular_mask = grid.create_circular_mask(img_shape=(slo_N,slo_N), 
                                      center=OD_center, 
                                      radius=circular_radius)
         circular_bnd_mask = segmentation.find_boundaries(circular_mask)
@@ -966,24 +962,15 @@ def _get_fovea(rvfmasks, foveas, N_scans=31, scan_type="Ppole", logging=[]):
     return fovea_slice_num, fovea, logging
 
 
-def _sort_trace_input(df, scan_location="H-line", layers=["CHORupper", "CHORlower"]):
+def load_trace(df, layers=['CHORupper', 'CHORlower']):
     '''
-    Helper function for loading in trace(s) from a dataframe loaded from an excel file
+    Load in paired layer segmentations from OCTolyzer's output DataFrame.
     '''
-    lyr1, lyr2 = layers
-    if isinstance(df, (str, PosixPath, WindowsPath)):
-        df = pd.read_excel(df, sheet_name=f"segmentations_{scan_location}")
-    upperChor = df[df.layer == lyr1].values[:,2:]
-    lowerChor = df[df.layer == lyr2].values[:,2:]
-    N = upperChor.shape[1]
-    x_grid = np.repeat(np.arange(N).reshape(1,-1), axis=0, repeats=upperChor.shape[0])
-    upper = np.concatenate([x_grid[np.newaxis], upperChor[np.newaxis]], axis=0).T.swapaxes(0,1)
-    lower =np.concatenate([x_grid[np.newaxis], lowerChor[np.newaxis]], axis=0).T.swapaxes(0,1)
-    traces = [(tu[tu[:,1] != 0].astype(np.int64),
-               tl[tl[:,1] != 0].astype(np.int64))  for (tu,tl) in zip(upper,lower)]
-
-    return traces
-
+    trace = df[df.layer.isin(layers)]
+    trace = pd.melt(trace, id_vars='layer', value_name='y', var_name='x')
+    traces = [trace[trace.layer==lyr].iloc[:,1:].values.astype(int) for lyr in layers]
+    traces = tuple([tr[tr[:,1]!=0] for tr in traces])
+    return interp_trace(traces)
 
 
 
