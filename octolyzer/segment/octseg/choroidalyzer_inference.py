@@ -7,7 +7,7 @@ from torchvision.transforms import v2 as T
 import numpy as np
 from PIL import Image
 from tqdm.autonotebook import tqdm
-from pathlib import Path, PurePath
+from pathlib import PurePath
 import sys
 
 SCRIPT_PATH = os.path.realpath(os.path.dirname(__file__))
@@ -48,13 +48,15 @@ def process_fovea_prediction(preds):
     """Wrapper to build filter, aggregate fovea prediction map and extract 
     largest row and column"""
     fovea = []
+    fov_score = []
     for d, k in zip([-2, -1], [21, 51]):
         fovea_signal_filter = _get_fov_filter(k).to(preds.device)
         fov_signal = _agg_fov_signal(preds, d)
-        fov_signal = fovea_signal_filter(fov_signal).squeeze()
-        fovea.append(fov_signal.argmax(dim=-1).cpu().numpy())
+        fov_signal = fovea_signal_filter(fov_signal).squeeze().cpu().numpy()
+        fov_score.append(fov_signal.max(axis=-1))
+        fovea.append(fov_signal.argmax(axis=-1))
     
-    return np.asarray(fovea).T.reshape(-1,2)
+    return np.asarray(fovea).T.reshape(-1,2), np.asarray(fov_score).T.reshape(-1,2)
 
 
 def get_default_img_transforms():
@@ -69,14 +71,13 @@ def get_default_img_transforms():
 
 class ImgListDataset(Dataset):
     """Torch Dataset from img list"""
-    def __init__(self, img_list, xcutoff=0):
+    def __init__(self, img_list):
         self.img_list = img_list
         if isinstance(img_list[0], (str, PurePath)):
             self.is_arr = False
         elif isinstance(img_list[0], np.ndarray):
             self.is_arr = True
         self.transform = get_default_img_transforms()
-        self.xcutoff = xcutoff
 
     def __len__(self):
         return len(self.img_list)
@@ -85,17 +86,16 @@ class ImgListDataset(Dataset):
         if self.is_arr:
             img = Image.fromarray((255*self.img_list[idx]/self.img_list[idx].max()).astype(np.uint8))
         else:
-            img = Image.fromarray(np.array(Image.open(self.img_list[idx]))[:,496:-16,0])
+            img = Image.open(self.img_list[idx])
 
         img, shape = self.transform(img)
-        return {'img': img, "crop":shape} #[0,:,self.xcutoff:].unsqueeze(0)
+        return {'img': img, "crop":shape} 
 
 
-def get_img_list_dataloader(img_list, batch_size=16, num_workers=0, pin_memory=False,xcutoff=0):
+def get_img_list_dataloader(img_list, batch_size=16, num_workers=0, pin_memory=False):
     """Wrapper of Dataset into DataLoader"""
-    dataset = ImgListDataset(img_list, xcutoff=xcutoff)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-                        pin_memory=pin_memory)
+    dataset = ImgListDataset(img_list)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin_memory)
     return loader
 
 
@@ -120,7 +120,7 @@ class Choroidalyzer:
         self.fov_thresh = fov_thresh
         self.verbose = ~verbose
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.device = "mps" if torch.backends.mps.is_available() else self.device
         if local_model_path is not None:
             if base:
                 self.model = torch.load(local_model_path[0], map_location=self.device)
@@ -147,53 +147,62 @@ class Choroidalyzer:
             pred = self.model(img).squeeze(0).sigmoid()
             pred_map = pred[:2]
             fov_map = pred[-1].unsqueeze(0)
-            fovea = process_fovea_prediction(fov_map)[0]
+            fovea, fov_score = process_fovea_prediction(fov_map)
             if self.fov_thresh is not None:
                 fovea = np.array([0,0]) if fov_map.max() < self.fov_thresh else fovea
             if not soft_pred:
                 pred = (pred_map > self.threshold).int()
-            return pred.cpu().numpy()[:, :M, :N],  fovea
+            return pred.cpu().numpy()[:, :M, :N],  fovea[0], fov_score[0]
 
     def predict_list(self, img_list, soft_pred=False):
         """Inference on a list of images without batching"""
         preds = []
         foveas = []
+        fov_scores = []
         with torch.no_grad():
             for img in tqdm(img_list, desc='Predicting', leave=False, disable=self.verbose):
-                pred, fovea = self.predict_img(img, soft_pred=soft_pred)
+                pred, fovea, fov_score = self.predict_img(img, soft_pred=soft_pred)
                 preds.append(pred)
                 foveas.append(fovea)
-        return preds, foveas
+                fov_scores.append(fov_score)
+        return preds, foveas, fov_scores
 
     # TODO: Peripapillary scans will not work here
     def _predict_loader(self, loader, soft_pred=False):
         """Inference from a DataLoader"""
         preds = []
         foveas = []
+        fov_scores = []
         with torch.no_grad():
             for batch in tqdm(loader, desc='Predicting', leave=False, disable=self.verbose):
                 img = batch['img'].to(self.device)
                 batch_M, batch_N = batch['crop']
                 pred = self.model(img).sigmoid().squeeze()
-                pred_map = pred[:,:2].cpu().numpy()
+                pred_map = pred.cpu().numpy()
                 fov_map = pred[:,-1].unsqueeze(1)
-                fovea = process_fovea_prediction(fov_map)
+                fovea, fov_score = process_fovea_prediction(fov_map)
                 if self.fov_thresh is not None:
                     ppole = fov_map.squeeze().cpu().numpy().max(axis=-1).max(axis=-1) <= self.fov_thresh
                     fovea[ppole] = 0
                 if not soft_pred:
                     pred_map = (pred_map > self.threshold).astype(np.int64)
                 pred_map = [p[:, :M,:N] for (p, M, N) in zip(pred_map, batch_M, batch_N)]
-                preds.append(pred)
-                foveas.append(fov_map)
-        return preds, foveas
+                preds.append(pred_map)
+                foveas.append(fovea)
+                fov_scores.append(fov_score)
+
+        # Collect outputs
+        pred_output = np.concatenate(preds)
+        fov_output = np.concatenate(foveas)
+        fovscore_output = np.concatenate(fov_scores)
+        
+        return pred_output, fov_output, fovscore_output
 
     def predict_batch(self, img_list, soft_pred=False, batch_size=16, num_workers=0, pin_memory=False):
         """Wrapper for DataLoader inference"""
-        loader = get_img_list_dataloader(img_list, batch_size=batch_size, num_workers=num_workers,
-                                         pin_memory=pin_memory, xcutoff=self.xcutoff)
-        preds, foveas = self._predict_loader(loader, soft_pred=soft_pred)
-        return preds, foveas
+        loader = get_img_list_dataloader(img_list, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
+        preds, foveas, fov_scores = self._predict_loader(loader, soft_pred=soft_pred)
+        return preds, foveas, fov_scores
 
     def __call__(self, x):
         """Direct call for inference on single  image"""

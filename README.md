@@ -78,17 +78,15 @@ See below for a visual description of OCTolyzer's analysis pipeline.
 
 To get a local copy up follow the steps in `instructions/quick_start.txt`, or follow the instructions below.
 
-1. You will need a local installation of Python to run OCTolyzer. We recommend a lightweight package management system such as Miniconda. Follow the instructions [here](https://www.anaconda.com/docs/getting-started/miniconda/install#installing-miniconda/) to download Miniconda for your desired operating system.
+1. You will need a local installation of Python to run OCTolyzer. We recommend a lightweight package management system such as Miniconda. Follow the instructions [here](https://docs.anaconda.com/free/miniconda/miniconda-install/) to download Miniconda for your desired operating system.
 
-2. After downloading Miniconda, navigate and open the Anaconda Prompt and clone the OCTolyzer repository.
+2. After downloading, navigate and open the Anaconda Prompt and clone the OCTolyzer repository.
 
 ```
 git clone https://github.com/jaburke166/OCTolyzer.git
 ```
 
-Alternatively, download the repository as a `.zip` file and extract the contents into a folder called `OCTolyzer`.
-
-3. Create environment and install dependencies to create your own environment in Miniconda on Anaconda Prompt.
+3. Create environment and install dependencies to create your own environment in Miniconda.
 
 ```
 conda create -n oct-analysis python=3.11 -y
@@ -246,6 +244,8 @@ Additionally, for smaller regions of interest, zones B and C, and the whole imag
 
 OCTolyzer can run reasonably fast using a standard, GPU-less Windows laptop CPU. For only running the OCT analysis suite (i.e., `analyse_slo` set to `0`).
 
+We have recently updated the SLO feature measurement pipeline which is a significant improvement on efficiency.
+
 - ~2 seconds for a single line OCT B-scan (pixel resolution $496 \times 768)$.
 - ~85 seconds for an OCT volume with thickness maps computed and measured for every retinochoroidal layer (pixel resolution $61 \times 496 \times 768$).
 - ~3 seconds for an OCT peripapillary B-scan (pixel resolution $768 \times 1536)$. **Note**: To align the peripapillary grid, the localiser SLO image must be available, and the fovea and optic disc must be segmented, which increases execution time to around 30 seconds. If the SLO is unavailable, the alignment of the peripapillary grid is likely to off-centre from the fovea.
@@ -297,6 +297,25 @@ If you are interested in automatic choroid analysis in OCT B-scans specifically,
 If you are interested in colour fundus photography (CFP) image analysis, check this repository out:
 
 * [AutoMorphalyzer](https://github.com/jaburke166/AutoMorphalyzer): A fully automatic analysis toolkit for segmentation and feature extracting in CFP data, a restructured version of [AutoMorph](https://github.com/rmaphoh/AutoMorph).
+---
+
+## Contributors and citing
+
+The contributors to this method and codebase are:
+
+* Jamie Burke (Jamie.Burke@ed.ac.uk)
+
+If you wish to use this toolkit please consider citing our work using the following BibText
+
+```
+@article{burke2024octolyzer,
+  title={OCTolyzer: Fully automatic analysis toolkit for segmentation and feature extracting in optical coherence tomography (OCT) and scanning laser ophthalmoscopy (SLO) data},
+  author={Burke, Jamie and Engelmann, Justin and Gibbon, Samuel and Hamid, Charlene and Moukaddem, Diana and Pugh, Dan and Farrah, Tariq and Strang, Niall and Dhaun, Neeraj and MacGillivray, Tom and others},
+  journal={arXiv preprint arXiv:2407.14128},
+  year={2024}
+}
+```
+
 ---
 
 ## Contributors and citing
@@ -403,12 +422,3 @@ If you wish to use this toolkit please consider citing our work using the follow
 ### 29/07/2024
 
 * Initial commit of OCTolyzer
- 
- 
- 
- 
- 
- 
- 
- 
-

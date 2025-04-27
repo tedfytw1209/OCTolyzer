@@ -28,33 +28,80 @@ def analyse(path,
             segmentation_dict={},
             demo_return=False):
     """
-    Inner function to analyse an individual IR-SLO img, given options for scaling/location/eye.
+    Analyses an individual IR-SLO image and performs segmentation and measurement tasks.
 
-    Inputs:
-    -------------------
-    path (str) : Path to image/vol file.
+    Parameters:
+    -----------
+    path : str or pathlib.Path or np.ndarray
+        Path to the SLO image file or numpy array representation of the image.
+        
+    save_path : str
+        Directory where results, including images, segmentations, visualisations and logs, will be saved.
+        
+    scale : float or int, optional
+        Microns-per-pixel conversion factor. If None, measurements will be in pixels.
+        
+    location : str, optional
+        Centring of SLO image, either 'Macular' or 'Optic disc'.
+        
+    eye : str, optional
+        Specifies the eye, either 'Right' or 'Left'.
+        
+    slo_model : SLOSegmenter, optional
+        Model for binary vessel segmentation.
+        
+    avo_model : AVOSegmenter, optional
+        Model for artery-vein-optic disc (AVOD) detection.
+        
+    fov_model : FOVSegmenter, optional
+        Model for fovea detection.
+        
+    save_results : bool, default=True
+        If True, saves log and output files with feature measurements.
+        
+    save_images : bool, default=False
+        If True, saves segmentation masks and overlays.
+        
+    collate_segmentations : bool, default=True
+        If True, saves superimposed segmentation images to a global directory for ease of end-user checking.
+        
+    compute_metrics : bool, default=True
+        If True, computes feature measurements of retinal vessels.
+        
+    verbose : bool, default=True
+        If True, prints progress and diagnostic messages.
+        
+    segmentation_dict : dict, optional
+        Contains manually edited segmentations for recomputing measurements.
+        
+    demo_return : bool, default=False
+        If True, returns specific data points for debugging.
 
-    save_path (str) : Path to save results to. Will be created if doesn't exist
+    Returns:
+    --------
+    meta_df : pd.DataFrame
+        Metadata about the image and analysis results.
+        
+    slo_dfs : list of pd.DataFrame
+        DataFrames containing measurements per region of interest.
+        
+    slo : np.ndarray
+        Processed SLO image.
+        
+    segmentations : list
+        Segmentation maps binary vessel, fovea and AVOD map).
+        
+    logging_list : list
+        Log messages generated during analysis, detailing steps and warnings.
+        
 
-    scale (str) : Microns-per-pixel conversion factor from pixel space to physical space.
-    
-    location (str) : Either 'Macular' or 'Optic disc' centred. 
-    
-    Eye (str) : Either 'Right' or 'Left'.
-
-    slo_model, avo_model, fov_model : binary, artery-vein-optic disc, and fovea detection models.
-
-    save_results (bool) : Flag to save log and xlsx output file with feature measurements and metadata.
-
-    save_images (bool) : Flag to save segmentation masks and segmentations superimposed onto SLO.
-
-    collate_segmentations (bool) : Flag to save the superimposed segmentation image to a global directory, 
-                                   assuming batch analysis.
-
-    compute_metrics (bool) : Flag to compute feature measurements of the retinal vessels.
-
-    segmentation_dict (dict) : Dictionaries with new segmentation to recompute measurements. By default left empty UNLESS
-                               correcting manual segmentations.
+    Notes:
+    ------
+    - Supports both file paths and numpy array inputs for SLO images.
+    - Infers image characteristics such as location and eye type if not provided.
+    - Calculates vessel metrics using specified or inferred regions of interest.
+    - Generates and saves composite visualisation of segmentations if specified.
+    - Handles both macular and optic disc-centered images, adjusting analysis accordingly.
     """
     # Initialise list of messages to save
     logging_list = []
