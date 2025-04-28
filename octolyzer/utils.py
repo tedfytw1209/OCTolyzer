@@ -1367,93 +1367,11 @@ def _process_opticdisc(od_mask):
     return od_radius, od_boundary
 
 
-
-def get_fovea(rvfmasks, foveas, N_scans=31, scan_type="Ppole", logging=[]):
-    """
-    Resolves the fovea coordinate based on the provided fovea prediction maps and scan type. 
-    This function is designed to handle cases where the fovea prediction is below a threshold 
-    or when the scan acquisition is not centered at the fovea.
-
-    Parameters:
-    -----------
-    rvfmasks : list of numpy arrays
-        A list of region/vessel/fovea (RVF) masks for all B-scan slices. 
-        Each mask is a 2D array representing the raw pixel-wise predictions of chorioretinal features.
-
-    foveas : list of numpy arrays
-        A list of fovea xy-predictions for each scan slice. Each element is an (x,y)-coordinate which
-        is the predicted fovea coordinates for the corresponding slice.
-
-    scan_type : str, optional, default="Ppole"
-        The type of scan being processed. Determines if the scan is assumed to be fovea-centered 
-        or not (e.g., for AV-line scans).
-
-    logging : list, optional, default=[]
-        A list that collects log messages for debugging and tracking the function's behavior.
-
-    Returns:
-    --------
-    fovea_slice_num : int
-        The index of the B-scan slice where the fovea is most likely located.
-
-    fovea : numpy array or None
-        The predicted fovea (xy)-coordinates for the selected slice. If no fovea is detected, it can be `None`.
-
-    logging : list
-        The updated logging list with additional messages about the fovea detection process.
-    """
-    N_scans = len(rvfmasks)
-    _, M, N = rvfmasks[0].shape
-    if N_scans == 1:
-        fovea_slice_num = 0
-        fovea = foveas[0]
-        if fovea.sum() == 0:
-            fmask = rvfmasks[0][-1]
-            if scan_type != "AV-line":
-                fovea = choroidalyzer_inference.process_fovea_prediction(torch.tensor(fmask).unsqueeze(0))[0]
-                msg = "\n\nPrediction threshold for fovea too high. Detecting from raw probabilities. Please check output for correct fovea alignment."
-            else:
-                fovea = None
-                msg = "\n\nAV-line scan assumed not to be fovea-centred."
-            logging.append(msg)
-            print(msg)
-
-    elif scan_type == 'Radial':
-        fovea_slice_num = N_scans//2
-        fovea = foveas[fovea_slice_num]
-
-    elif scan_type == 'Ppole':
-        foveas_arr = np.array(foveas)
-        fov_idx = np.where(foveas_arr[:,0]>0)[0]
-
-        # If default fovea-centred B-scan prediction is at origin, work out highest score from fovea masks
-        # which have detected a fovea coordinate
-        if fov_idx.shape[0] > 0:
-            fov_scores = []
-            fov_preds = []
-            for idx in fov_idx:
-                fmask = rvfmasks[idx][-1]
-                fov_pred = choroidalyzer_inference.process_fovea_prediction(torch.tensor(fmask).unsqueeze(0))[0]
-                fov_scores.append(fmask[fov_pred[1], fov_pred[0]])
-                fov_preds.append(fov_pred)
-            fovea_slice_num = fov_idx[np.argmax(fov_scores)]
-        else:
-            msg = "\n\nCannot locate the fovea. Taking the middle of the OCT acquisition by default."
-            logging.append(msg)
-            print(msg)
-            fovea_slice_num = N_scans//2
-            fovea = np.array([N//2, M//2])
-            logging.append(msg)
-
-    return fovea_slice_num, fovea, logging
-
-
-def load_trace(df, layers=['CHORupper', 'CHORlower']):
+def sort_trace(df, layers=['CHORupper', 'CHORlower']):
     '''
     Load in paired layer segmentations from OCTolyzer's output DataFrame.
     '''
-    trace = df[df.layer.isin(layers)]
-    trace = pd.melt(trace, id_vars='layer', value_name='y', var_name='x')
+    trace = pd.melt(df, id_vars='layer', value_name='y', var_name='x')
     traces = [trace[trace.layer==lyr].iloc[:,1:].values.astype(int) for lyr in layers]
     traces = tuple([tr[tr[:,1]!=0] for tr in traces])
     return interp_trace(traces)
@@ -1700,7 +1618,7 @@ def plot_composite_bscans(bscan_data, vmasks, fovea_info, layer_pairwise, reshap
                 fovea_xy = fovea_info[reshape_idx[1]*i + j]
                 ax.scatter(fovea_xy[0]+j*N, fovea_xy[1]+i*M, label='_ignore', color='r', zorder=3, marker='X', edgecolors=(0,0,0), linewidth=0.1, s=2)
 
-            # If radial, overlay ROI area - NEED TO CHECK THIS
+            # If radial, overlay ROI area
             if overlay_areas is not None:
                 all_thicks = overlay_areas['thicks'][reshape_idx[1]*i + j]
                 for thicks in all_thicks:
@@ -1906,58 +1824,3 @@ def generate_zonal_masks(img_shape, od_radius, od_centre, location='Macular'):
         mask_rois[roi_type] = mask
 
     return mask_rois
-
-
-# Description of all the columns found in the metadata sheet
-meta_cols = {'Filename':'Filename of the SLO+OCT file analyse.',
-             'FAILED':'Boolean flag on whether file unexpectedly failed to be analysed.',
-             'eye':'Type of eye, either Right or Left.',
-             
-             'bscan_type':'Type of OCT scan acquired. One of H(orizontal)-line, V(ertical)-line;A(rtery)V(ein)-line, P(osterior)pole and Peripapillary.',
-             'bscan_resolution_x': 'Number of columns of B-scan, typically 768 or 1536 for Heidelberg.',
-             'bscan_resolution_y': 'Number of rows of B-scan, typically 768 or 496 for Heidelberg.',
-             'bscan_scale_z': 'Micron distance between successive B-scans in a Posterior pole acquisition. Is 0 for all other Bscan_types.',
-             'bscan_scale_x': 'Pixel lengthscale in the horizontal direction B-scan/SLO, measured in microns per pixel.',
-             'bscan_scale_y': 'Pixel lengthscale in the vertical direction in the B-scan, measured in microns per pixel.',
-             'bscan_ROI_mm': 'Region of interest (distance) captured by each B-scan measured in mm.',
-             'scale_units': 'Units of the lengthscales, this is fixed as microns per pixel.',
-             
-             'avg_quality': 'Heidelberg-provided signal-to-noise ratio of the B-scan(s).',
-             'retinal_layers_N': 'Number of retinal layer segmentations extracted from metadata.',
-             'scan_focus': 'Scan focus of the acquisition, in Dioptres. This decides the scaling and is a gross measure of refractive error.',
-             'visit_date': 'Date of acquisition.',
-             'exam_time': 'Time of acquisition.',
-             
-             'slo_resolution_px': 'Number of rows/columns in the square-shaped SLO image (typically 768 or 1536).',
-             'field_of_view_mm': 'Field of view captured during acquisition, usually between 8 and 9 mm if field size is 30 degrees.',
-             'slo_scale_xy': 'Pixel lengthscale of the SLO image, and is typically the same for both directions.',
-             'location': 'Whether scan is macula-centred or disc-centred. Is either "macular" or "peripapillary"',
-             'field_size_degrees': 'Field of view in degrees, typically 30.',
-             'slo_modality': ' Modality used for SLO image capture. OCTolyzer supports grayscale NIR cSLO images currently.',
-             
-             'bscan_fovea_x': 'Horizontal pixel position of the fovea on the OCT B-scan (if visible in one of the scans, only relevant for macular OCT).',
-             'bscan_fovea_y': 'Vertical pixel position of the fovea on the OCT B-scan (if visible in one of the scans, only relevant for macular OCT).',
-             'slo_fovea_x': 'Horizontal pixel position of the fovea on the SLO image, if visible.',
-             'slo_fovea_y': 'Vertical pixel position of the fovea on the SLO image, if visible.',
-             'acquisition_angle_degrees': 'Angle of elevation from horizontal image axis of acquisition for Posterior pole scans.',
-             'slo_missing_fovea':'Boolean value flagging whether fovea is missing from data (either due to acquisition or segmentation failure).',
-             
-             'optic_disc_overlap_index_%':'% of the optic disc diameter, defining how off-centre a peripapillary image acquisition is from the optic disc centre.',
-             'optic_disc_overlap_warning': 'Boolean value, flagging if the overlap index is greater than 15%, the empirical cut-off to warn end-user of an off-centre scan.',
-             'optic_disc_x': 'Horizontal pixel position of the optic disc centre on the SLO image, if visible.',
-             'optic_disc_y': 'Vertical pixel position of the optic disc centre on the SLO image, if visible.',
-             'optic_disc_radius_px': 'Pixel radius of the optic disc.',
-             
-             'thickness_units':'Units of measurement for thickness, always in microns (micrometres).',
-             'vascular_index_units':'Units of measurement for choroid vascular index, always dimensionless (no units, but is a ratio between 0 and 1).',
-             'vessel_density_units':'Units of measurement for choroid vessel density, always in micron2 (square microns)',
-             'area_units':'Units of measurements for area, always in mm2 (square millimetres).',
-             'volume_units':'Units of measurements for volume, always in mm3 (cubic millimetres).',
-             'linescan_area_ROI_microns':'For single-line, macular OCT, this is the micron distance defining the fovea-centred region of interest.',
-             'choroid_measure_type':'Whether the choroid is measured column-wise (per A-scan) or perpendicularly. Always per A-scan for peripapillary OCT.',
-             
-             'acquisition_radius_px': 'Pixel radius of the acquisition line around the optic disc for peripapillary OCT.',
-             'acquisition_radius_mm': 'Millimetre radius of the acquisition line around the optic disc for peripapillary OCT.',
-             'acquisition_optic_disc_center_x': 'Horizontal pixel position of the optic disc centre, as selected by the user during peripapillary OCT acquisition.',
-             'acquisition_optic_disc_center_y': 'Vertical pixel position of the optic disc centre, as selected by the user during peripapillary OCT acquisition.'}
-metakey_df = pd.DataFrame({'column':meta_cols.keys(), 'description':meta_cols.values()})

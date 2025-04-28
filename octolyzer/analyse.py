@@ -24,7 +24,7 @@ from octolyzer.segment.octseg import choroidalyzer_inference, deepgpet_inference
 from octolyzer.segment.sloseg import fov_inference 
 from octolyzer.measure.bscan import bscan_measurements
 from octolyzer.measure.bscan.thickness_maps import map as map_module
-from octolyzer import analyse_slo, utils, collate_data
+from octolyzer import analyse_slo, utils, collate_data, key_descriptions
 
 KEY_LAYER_DICT = {"ILM": "Inner Limiting Membrane",
                   "RNFL": "Retinal Nerve Fiber Layer",
@@ -441,15 +441,15 @@ def analyse(path,
         print(msg)
 
     # Check if previous measurements exist for OCT, load in and return if so, unless manual annotation
-    # of OCT fovea exists and the scan type is not Ppole OR the scan is peripapillary
-    if os.path.exists(fname_output_path) and (not new_oct_fovea_flag or scan_type == 'Ppole') and not slo_flag:
+    # of OCT fovea exists and the scan type is not Ppole/Radial OR the scan is peripapillary
+    if os.path.exists(fname_output_path) and (not new_oct_fovea_flag or scan_type in ['Ppole', 'Radial']) and not slo_flag:
         ind_df, oct_dfs, log = collate_data.load_files(save_path, logging_list=[], only_oct=1, verbose=1)
         oct_analysis_output = ind_df, slo, bscan_data, oct_dfs, [], log
         return slo_analysis_output, oct_analysis_output
     
     # Check to see if OCT fovea manual annotation has been inputted, and skip model instantiation and
-    # segmentation. Only valid for non-Ppole macular scans for the moment.
-    if new_oct_fovea_flag and scan_type not in ['Ppole', 'Peripapillary']:
+    # segmentation. Only valid for non-Ppole, non-Radial macular scans for the moment.
+    if new_oct_fovea_flag and scan_type not in ['Ppole', 'Radial', 'Peripapillary']:
 
         # Output to end-user detection of OCT B-scan fovea manual annotation
         msg = f"Detected manual annotation of OCT B-scan fovea for macular {scan_type}. Loading in segmentations and recomputing metrics."
@@ -465,19 +465,24 @@ def analyse(path,
 
         # Load in available segmentations if analyse_choroid
         if analyse_choroid:
-            try:
-                vmask = np.array(ImageOps.grayscale(Image.open(os.path.join(save_path, f"{fname}_chorvessel_mask.png"))))/255
-                region_df = pd.read_excel(fname_output_path, sheet_name=f'segmentations_{scan_type}')
-                rtraces = utils.load_trace(region_df)
-                rmask = utils.rebuild_mask(rtraces, img_shape=bscan_data[0].shape)
-                rvfmasks = np.concatenate([mask[np.newaxis] for mask in [rmask,
-                                                                        vmask, 
-                                                                        fmask]], axis=0).reshape(1, 3, *bscan_data.shape[1:])
-            except:
-                msg = 'Unable to locate choroid segmentations. It appears analyse_choroid=0 in previous runs.'
-                if verbose:
-                    print(msg)
-                logging_list.append(msg)
+            # try:
+            vmask = np.array(ImageOps.grayscale(Image.open(os.path.join(save_path, f"{fname}_chorvessel_mask.png"))))/255
+            rtraces = []
+            for lyr in ['CHORupper', 'CHORlower']:
+                lyr_df = pd.read_excel(fname_output_path, sheet_name=f'segmentations_{lyr}').iloc[:,1:]
+                lyr_df['layer'] = lyr
+                rtraces.append(lyr_df)
+            rtraces = pd.concat(rtraces, axis=0)
+            rtraces = utils.sort_trace(rtraces)
+            rmask = utils.rebuild_mask(rtraces, img_shape=bscan_data[0].shape)
+            rvfmasks = np.concatenate([mask[np.newaxis] for mask in [rmask,
+                                                                    vmask, 
+                                                                    fmask]], axis=0).reshape(1, 3, *bscan_data.shape[1:])
+            # except:
+            #     msg = 'Unable to locate choroid segmentations. It appears analyse_choroid=0 in previous runs.'
+            #     if verbose:
+            #         print(msg)
+            #     logging_list.append(msg)
         else:
             rvfmasks = np.concatenate([mask[np.newaxis] for mask in [np.zeros_like(fmask), 
                                                                      np.zeros_like(fmask), 
@@ -490,10 +495,10 @@ def analyse(path,
             print(msg)
         logging_list.append(msg)
 
-    # If OCT fovea manual annotations are by accident in Ppole/Peripapillary B-scans, load in OCT measurements
+    # If OCT fovea manual annotations are by accident in Ppole/Radial/Peripapillary B-scans, load in OCT measurements
     # and return as we do not support OCT fovea annotation for these scan types (invalid for peripapillary and not yet
-    # implemented for Ppole)
-    elif new_oct_fovea_flag and scan_type in ['Ppole', 'Peripapillary']:
+    # implemented for Ppole/Radial)
+    elif new_oct_fovea_flag and scan_type in ['Ppole', 'Radial', 'Peripapillary']:
         ind_df, oct_dfs, log = collate_data.load_files(save_path, logging_list=[], only_oct=1, verbose=1)
         oct_analysis_output = ind_df, slo, bscan_data, oct_dfs, [], log
         return slo_analysis_output, oct_analysis_output
@@ -521,14 +526,23 @@ def analyse(path,
         if verbose:
             print(msg)
         if scan_location == "macular":
-            rvfmasks, foveas = choroidalyzer.predict_list(bscan_data, soft_pred=True)
+            if N_scans == 1 or choroidalyzer.device == 'cpu':
+                rvfmasks, foveas, fov_scores = choroidalyzer.predict_list(bscan_data, soft_pred=True)
+            else:
+                rvfmasks, foveas, fov_scores = choroidalyzer.predict_batch(bscan_data, soft_pred=True)
         elif scan_location == "peripapillary":
             rvfmasks = deepgpet.predict_list(bscan_data, soft_pred=True)
         
         # Resolve fovea detection. If at origin then threshold too high, apply filter function and warn user.
         if scan_location != "peripapillary":
-            fovea_slice_num, fovea, fov_log = utils._get_fovea(rvfmasks, foveas, N_scans, scan_type, logging=[])
-            logging_list.extend(fov_log)
+            # Method 1: default to middle of stack, unreliable due to poor acquisition but mostly correct
+            fovea_slice_num = N_scans//2 
+            
+            # Method 2: detect fovea based on the highest score from Choroidalyzer, unreliable due to poor segmentation but mostly correct.
+            #fovea_slice_num = fov_scores.argmax(axis=0)[0]
+            
+            # Extract fovea from list using fovea_slice_num
+            fovea = foveas[fovea_slice_num]
 
     # Detect retinal layer keys
     pairwise_keys = list(layer_pairwise.keys())
@@ -924,52 +938,11 @@ Instead, B-scan and SLO images are automatically saved out."""
             metadata["bscan_missing_fovea"] = False
             metadata["slo_missing_fovea"] = False
 
-         # Save out B-scan segmentations
-        if save_ind_segmentations:
-            layer_keys_copied = layer_keys.copy()
-            fig, (ax0,ax) = plt.subplots(1,2,figsize=(12,6))
-            ax0.imshow(bscan_data[0], cmap='gray')
-            ax.imshow(bscan_data[0], cmap="gray")
-            for key, tr in layer_pairwise.items():
-                for (k, t) in zip(key.split("_"), tr[0]):
-                    if k in layer_keys_copied:
-                        ax.plot(t[:,0],t[:,1], label='_ignore', zorder=2)
-                        layer_keys_copied.remove(k)
-            if analyse_choroid:
-                ax.imshow(vessel_cmap, alpha=0.5, zorder=2)
-            if scan_type != "AV-line":
-                ax.scatter(foveas[0][0], foveas[0][1], s=200, marker="X", edgecolor=(0,0,0), 
-                        color="r", linewidth=1, zorder=3, label='Detected fovea position')
-                if len(overlay_areas) > 0:
-                    for roi_map in overlay_areas:
-                        ax.imshow(utils.generate_imgmask(roi_map, None, 1), alpha=0.25, zorder=0)
-                    for thicks in overlay_thicks:
-                        for line_pts in thicks:
-                            ax.plot(line_pts[:,0], line_pts[:,1], color='g', linestyle='--', linewidth=3, zorder=1, label='_ignore')
-                    ax.fill_between([-2,-1], [-2,-1], color='g', alpha=0.25, label=f'Region of interest\n({2*macula_rum} microns fovea-centred)')
-            ax.axis([0, N-1, M-1, 0])
-            ax.legend(fontsize=16)
-            ax.set_axis_off()
-            ax0.set_axis_off()
-            fig.tight_layout(pad = 0)
-            fig.savefig(os.path.join(save_path, f"{fname}_octseg.png"), bbox_inches="tight")
-            if collate_segmentations:
-                shutil.copy(os.path.join(save_path, f"{fname}_octseg.png"),
-                                os.path.join(segmentation_directory, f'{fname}.png'))
-            plt.close()
-            msg = f"\nSegmented B-scan visualisation saved out.\n"
-            logging_list.append(msg)
-            if verbose:
-                print(msg)
-
-            # Save out segmentation mask for the fovea
-            fmask = np.zeros((*bscan_data[0].shape, 3))
-            cv2.circle(fmask, foveas[0], 30, (0,0,255), -1)
-            cv2.imwrite(os.path.join(save_path, f"{fname}_oct_fovea_map.png"), fmask[...,-1].astype(np.uint8))
-
-        # H-line/V-line Measurement metadata
-        horizontal = [False, True][scan_type=="H-line"]
-        if scan_type in ["H-line", "V-line"]:
+            # Save out segmentation mask for the fovea, but only for single line-scan and NOT Radial scans (yet)
+            if scan_type != 'Radial':
+                fmask = np.zeros((*bscan_data[0].shape, 3))
+                cv2.circle(fmask, foveas[0], 30, (0,0,255), -1)
+                cv2.imwrite(os.path.join(save_path, f"{fname}_oct_fovea_map.png"), fmask[...,-1].astype(np.uint8))
 
             # Save out fovea xy-coordinates, comma-separated for when N_scans > 1
             metadata["bscan_fovea_x"] = ','.join([f'{fov[0]}' for fov in foveas])
@@ -1514,7 +1487,7 @@ NOTE: Subregion volumes will not be computed for CVI map."""
         meta_df.to_excel(writer, sheet_name='metadata', index=False)
 
         # Save out metadata key and descriptions
-        metakeydf = utils.metakey_df
+        metakeydf = key_descriptions.metakey_df
         metakeydf = metakeydf[metakeydf.column.isin(list(meta_df.columns))]
         metakeydf.to_excel(writer, sheet_name='metadata_keys', index=False)
 

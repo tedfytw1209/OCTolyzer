@@ -5,14 +5,14 @@
 analysis_directory: /Users/s1522100/Documents/OCTolyzer/demo/input
 
 # This is the folder which will save all results into
-output_directory: /Users/s1522100/Documents/OCTolyzer/demo/output_020225
+output_directory: /Users/s1522100/Documents/OCTolyzer/demo/output_270425
 
 --------------------------------------------------------------------------------------------------------
 
 # For typical use case, leave settings below untouched (all set to 1)
 # For debugging any unexpected errors, set robust_run to 0. 
 # Otherwise, 1 will skip over any files which throw up unexpected error.
-robust_run: 1
+robust_run: 0
 
 # Option to save out segmentation masks and raw images of .vol scan per individual.
 save_individual_segmentations: 1

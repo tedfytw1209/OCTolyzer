@@ -403,8 +403,8 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
     if all_oct_linescan_df.shape[0] > 0 or all_oct_radial_df.shape[0] > 0:
         fail_cols.extend(['bscan_missing_fovea', 
                           'slo_missing_fovea', 
-                          'missing_retinal_oct_linescan_measurements',
-                          'missing_choroid_oct_linescan_measurements',])
+                          'missing_retinal_oct_measurements',
+                          'missing_choroid_oct_measurements',])
     if all_oct_peri_df.shape[0] > 0:
         fail_cols.extend(['optic_disc_overlap_warning'])
     if 'FAILED' in all_ind_df.columns:
