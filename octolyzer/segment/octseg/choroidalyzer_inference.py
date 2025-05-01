@@ -165,7 +165,7 @@ class Choroidalyzer:
                 preds.append(pred)
                 foveas.append(fovea)
                 fov_scores.append(fov_score)
-        return preds, foveas, fov_scores
+        return preds, foveas, np.concatenate(fov_scores)
 
     # TODO: Peripapillary scans will not work here
     def _predict_loader(self, loader, soft_pred=False):

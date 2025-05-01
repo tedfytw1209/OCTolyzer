@@ -536,10 +536,13 @@ def analyse(path,
         # Resolve fovea detection. If at origin then threshold too high, apply filter function and warn user.
         if scan_location != "peripapillary":
             # Method 1: default to middle of stack, unreliable due to poor acquisition but mostly correct
-            fovea_slice_num = N_scans//2 
+            # fovea_slice_num = N_scans//2 
             
             # Method 2: detect fovea based on the highest score from Choroidalyzer, unreliable due to poor segmentation but mostly correct.
-            #fovea_slice_num = fov_scores.argmax(axis=0)[0]
+            if scan_type == 'Ppole':
+                fovea_slice_num = int(fov_scores.argmax(axis=0)[0])
+            else:
+                fovea_slice_num = N_scans//2 
             
             # Extract fovea from list using fovea_slice_num
             fovea = foveas[fovea_slice_num]

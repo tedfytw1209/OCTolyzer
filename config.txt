@@ -5,7 +5,7 @@
 analysis_directory: /Users/s1522100/Documents/OCTolyzer/demo/input
 
 # This is the folder which will save all results into
-output_directory: /Users/s1522100/Documents/OCTolyzer/demo/output_270425
+output_directory: /Users/s1522100/Documents/OCTolyze/demo/output
 
 --------------------------------------------------------------------------------------------------------
 

@@ -645,7 +645,7 @@ def build_chth_map(ct_data, ct_acqs, ct_topStx, acq_centre, N_stack, slo_Vs,
     # Pad vertically to align with macular ROI on SLO
     ct_M, ct_N = ct_scaled.shape
     pad_M = (max(0, acq_y-slo_V_t),
-             slo_N - (slo_V+max(0, acq_y-slo_V_t)))
+             max(0, slo_N - (slo_V+max(0, acq_y-slo_V_t))))
 
     ct_mask_padded = np.pad(ct_mask_scaled, 
                             ((pad_M[1], pad_M[0]),(0, 0)), 
@@ -808,6 +808,7 @@ def construct_map(slo, slo_acq, slo_acq_pad,
     
     # Scan number at the centre of the OCT acquisition
     acq_slice_num = N_stack//2
+    acq_slice_num = fovea_slice_num if fovea_slice_num is not None else acq_slice_num
     
     # vertical distance to interpolate and sample ChTh heatmap from
     line_distance = bscan_delta/scale_X
