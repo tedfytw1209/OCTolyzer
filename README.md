@@ -353,6 +353,8 @@ If you wish to use this toolkit please consider citing our work using the follow
 
 ### 02/02/2025
 
+Note that these changes were held on the `development` branch until 30/04/2025 where it was merged in the `main` branch.
+
 * Updated `README.md` structure and included a table of contents.
 
 * Included a `requirements.txt` file to ensure proper installation of dependencies with OCTolyzer's pipeline. 
