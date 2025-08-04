@@ -244,7 +244,7 @@ def run(args):
                         if oct_path.endswith('.vol'):
                             _, metadata, _, _, _ = utils.load_volfile(oct_path, verbose=False)
                         elif oct_path.endswith('.dcm'):
-                            _, metadata, _, _, _ = utils.load_dcmfile(oct_path, enface_path=enface_path, verbose=False)
+                            _, metadata, _, _, _ = utils.load_dcmfile(oct_path, dcm_slo_path=enface_path, verbose=False)
                         metadata['FAILED'] = True
                         if metadata["bscan_type"] == 'Peripapillary':
                             del metadata['stxy_coord']

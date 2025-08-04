@@ -210,7 +210,7 @@ def analyse(path,
 
     # Load data from .vol
     if enface_path is not None:
-        output = utils.load_dcmfile(path, enface_path=enface_path, preprocess=preprocess_data*analyse_choroid, verbose=verbose,
+        output = utils.load_dcmfile(path, dcm_slo_path=enface_path, preprocess=preprocess_data*analyse_choroid, verbose=verbose,
                                     custom_maps=custom_maps, logging=logging_list)
     else:
         output = utils.load_volfile(path, preprocess=preprocess_data*analyse_choroid, verbose=verbose,
