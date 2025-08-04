@@ -136,11 +136,13 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     slo = voldata.localizer.data.astype(float) / 255
     slo_N = slo.shape[0]
     slo_metadict = voldata.localizer.meta.as_dict()
+    print('slo_metadict:', slo_metadict)
     slo_metadict["slo_resolution_px"] = slo_N
     slo_metadict["field_of_view_mm"] = slo_metadict["scale_x"] * slo_N
     
     # bscan metadata
     vol_metadata = voldata.meta.as_dict()
+    print('oct_metadict:', vol_metadata)
     eye = vol_metadata["laterality"]
     scale_z, scale_x, scale_y = vol_metadata["scale_z"], vol_metadata["scale_x"], vol_metadata["scale_y"]
     bscan_meta = vol_metadata["bscan_meta"]
@@ -521,8 +523,8 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         "sop_class": str(slo_voldata.SOPClassUID),
         "num_frames": slo_voldata.NumberOfFrames or 1,
         "rows": slo_voldata.Rows, "cols": slo_voldata.Columns,
-        "spacing_y_mm": slo_voldata.PixelSpacing[0],
-        "spacing_x_mm": slo_voldata.PixelSpacing[1],
+        "scale_y": slo_voldata.PixelSpacing[0],
+        "scale_x": slo_voldata.PixelSpacing[1],
         "slice_thickness_mm": getattr(slo_voldata, "SpacingBetweenSlices", slo_voldata.get("SliceThickness", None)),
         "eye": slo_voldata.ImageLaterality,
         "manufacturer": slo_voldata.get("Manufacturer", None)
