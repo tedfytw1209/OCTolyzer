@@ -324,6 +324,8 @@ def load_volfile(vol_path, preprocess=False, custom_maps=[], logging=[], verbose
     for point in all_mm_points:
         all_px_points.append(slo_N * point / slo_metadict["field_of_view_mm"])
     all_px_points = np.array(all_px_points)
+    print("all_px_points shape", all_px_points.shape)
+    print("all_px_points", all_px_points)
 
     # Python indexing versus .vol all_px_points indexing
     all_px_points[:,1,0] -= 1
@@ -579,10 +581,10 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     logging.append(msg)
     if verbose:
         print(msg)
-    all_mm_points = []
+    all_mm_points = [] # TODO: need check
     for m in bscan_meta:
         img_position = m["PlanePositionSequence"][0]["ImagePositionPatient"].value
-        st = img_position[-1] # Z-coordinate of the start position
+        st = img_position
         en = img_position[-1] + vol_metadata["scale_z"]
         point = np.array([st, en])
         all_mm_points.append(point)
