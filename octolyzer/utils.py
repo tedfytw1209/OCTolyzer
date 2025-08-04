@@ -584,8 +584,8 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     all_mm_points = [] # TODO: need check
     for m in bscan_meta:
         img_position = m["PlanePositionSequence"][0]["ImagePositionPatient"].value
-        st = img_position
-        en = img_position[-1] + vol_metadata["scale_z"]
+        st = (img_position[0], img_position[2])
+        en = (img_position[0], img_position[2] + vol_metadata["scale_z"])
         point = np.array([st, en])
         all_mm_points.append(point)
     
