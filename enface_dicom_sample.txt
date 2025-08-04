@@ -1,0 +1,126 @@
+slo_voldata: Dataset.file_meta -------------------------------
+(0002,0000) File Meta Information Group Length  UL: 428
+(0002,0001) File Meta Information Version       OB: b'\x00\x01'
+(0002,0002) Media Storage SOP Class UID         UI: Ophthalmic Photography 8 Bit Image Storage
+(0002,0003) Media Storage SOP Instance UID      UI: 1.2.840.114158.533413886009148308910096601365157670076
+(0002,0010) Transfer Syntax UID                 UI: JPEG 2000 Image Compression (Lossless Only)
+(0002,0012) Implementation Class UID            UI: 1.2.840.114158.1.1.3
+(0002,0013) Implementation Version Name         SH: 'AcuoWS6.0'
+(0002,0100) Private Information Creator UID     UI: 1.2.840.114158.1.1.3
+(0002,0102) Private Information                 OB: Array of 196 elements
+-------------------------------------------------
+(0008,0005) Specific Character Set              CS: ''
+(0008,0008) Image Type                          CS: ['ORIGINAL', 'PRIMARY', '', 'RED']
+(0008,0016) SOP Class UID                       UI: Ophthalmic Photography 8 Bit Image Storage
+(0008,0018) SOP Instance UID                    UI: 1.2.840.114158.533413886009148308910096601365157670076
+(0008,0020) Study Date                          DA: '28980917'
+(0008,0022) Acquisition Date                    DA: '28980917'
+(0008,0023) Content Date                        DA: '28980917'
+(0008,0030) Study Time                          TM: '091605'
+(0008,0032) Acquisition Time                    TM: '091829'
+(0008,0033) Content Time                        TM: '091829.570000'
+(0008,0050) Accession Number                    SH: '[AccessionNu.0]'
+(0008,0060) Modality                            CS: 'OP'
+(0008,0061) Modalities in Study                 CS: ['', 'OPT', 'OP', '']
+(0008,0070) Manufacturer                        LO: 'Heidelberg Engineering'
+(0008,0090) Referring Physician's Name          PN: 'LastName1^FirstName^^^'
+(0008,1030) Study Description                   LO: 'OCT'
+(0008,103E) Series Description                  LO: 'Volume IR'
+(0008,1090) Manufacturer's Model Name           LO: 'Spectralis'
+(0008,2218)  Anatomic Region Sequence  1 item(s) ---- 
+   (0008,0100) Code Value                          SH: 'T-AA610'
+   (0008,0104) Code Meaning                        LO: 'Retina'
+   ---------
+(0010,0010) Patient's Name                      PN: 'LastName2^FirstName^^^'
+(0010,0020) Patient ID                          LO: '[PatientID.1]'
+(0010,0030) Patient's Birth Date                DA: '28040212'
+(0012,0062) Patient Identity Removed            CS: 'YES'
+(0012,0063) De-identification Method            LO: 'Basic Application Confidentiality Profile'
+(0012,0064)  De-identification Method Code Sequence  2 item(s) ---- 
+   (0008,0100) Code Value                          SH: '113100'
+   (0008,0102) Coding Scheme Designator            SH: 'DCM'
+   (0008,0104) Code Meaning                        LO: 'Basic Application Confidentiality Profile'
+   ---------
+   (0008,0100) Code Value                          SH: '900901'
+   (0008,0102) Coding Scheme Designator            SH: 'WIF'
+   (0008,0104) Code Meaning                        LO: 'BASIC PROFILE OVERRIDES POTENTIALLY VIOLATE SECURITY STANDARD'
+   (0008,0108) Extended Code Meaning               LT: Array of 31 elements
+   ---------
+(0018,0010) Contrast/Bolus Agent                LO: '[Contrast/Bolus Age]'
+(0018,0015) Body Part Examined                  CS: ''
+(0018,1010) Secondary Capture Device ID         LO: ''
+(0018,1020) Software Versions                   LO: ['SW-VWM 6.16.11.0', 'FW-CAM 2.7.5.0', 'FW-PWS 1.5.5.0', 'FW-TSP 0.0.0.0', 'SW-AQM 6.16.8.0']
+(0018,1063) Frame Time                          DS: '0'
+(0018,106A) Synchronization Trigger             CS: 'NO TRIGGER'
+(0018,1800) Acquisition Time Synchronized       CS: 'N'
+(0018,7004) Detector Type                       CS: ''
+(0018,A001)  Contributing Equipment Sequence  1 item(s) ---- 
+   (0008,0070) Manufacturer                        LO: 'Claron'
+   (0008,1010) Station Name                        SH: 'IDR-ACUAC-PW01'
+   (0008,1090) Manufacturer's Model Name           LO: 'Deidentification'
+   (0018,1020) Software Versions                   LO: ['WIF 2.1.17', '23.1.0.0']
+   (0018,A002) Contribution DateTime               DT: '20250121132501.585041'
+   (0018,A003) Contribution Description            ST: 'Cleaned'
+   (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+      (0008,0100) Code Value                          SH: '109104'
+      (0008,0102) Coding Scheme Designator            SH: 'DCM'
+      (0008,0104) Code Meaning                        LO: 'De-identifying Equipment'
+      ---------
+   ---------
+(0020,000D) Study Instance UID                  UI: 1.2.840.114158.47465287849254480423799108875624256649
+(0020,000E) Series Instance UID                 UI: 1.2.840.114158.574369408026793161714832145979200322990
+(0020,0010) Study ID                            SH: '[StudyID.2]'
+(0020,0011) Series Number                       IS: '333907000'
+(0020,0013) Instance Number                     IS: '1'
+(0020,0020) Patient Orientation                 CS: ['L', 'F']
+(0020,0022) Overlay Number                      IS: None
+(0020,0024) Curve Number                        IS: None
+(0020,0026) LUT Number                          IS: None
+(0020,0052) Frame of Reference UID              UI: 1.2.840.114158.49021113808760921317216492206905318324
+(0020,0062) Image Laterality                    CS: 'R'
+(0020,0200) Synchronization Frame of Reference  UI: 1.2.840.114158.54138508530729972085007746333544569017
+(0020,1040) Position Reference Indicator        LO: ''
+(0022,0005) Patient Eye Movement Commanded      CS: 'YES'
+(0022,0006)  Patient Eye Movement Command Code Sequence  1 item(s) ---- 
+   (0008,0100) Code Value                          SH: 'R-1022D'
+   (0008,0104) Code Meaning                        LO: 'Primary gaze'
+   ---------
+(0022,000A) Emmetropic Magnification            FL: None
+(0022,000B) Intra Ocular Pressure               FL: None
+(0022,000C) Horizontal Field of View            FL: 30.0
+(0022,000D) Pupil Dilated                       CS: ''
+(0022,0015)  Acquisition Device Type Code Sequence  1 item(s) ---- 
+   (0008,0100) Code Value                          SH: 'A-00E8A'
+   (0008,0104) Code Meaning                        LO: 'Scanning Laser Ophthalmoscope'
+   ---------
+(0022,0016)  Illumination Type Code Sequence  0 item(s) ---- 
+(0022,0017)  Light Path Filter Type Stack Code Sequence  0 item(s) ---- 
+(0022,0018)  Image Path Filter Type Stack Code Sequence  0 item(s) ---- 
+(0022,0019)  Lenses Code Sequence  0 item(s) ---- 
+(0022,001B)  Refractive State Sequence  0 item(s) ---- 
+(0028,0002) Samples per Pixel                   US: 1
+(0028,0004) Photometric Interpretation          CS: 'MONOCHROME2'
+(0028,0008) Number of Frames                    IS: '1'
+(0028,0009) Frame Increment Pointer             AT: (0018,1063)
+(0028,0010) Rows                                US: 768
+(0028,0011) Columns                             US: 768
+(0028,0030) Pixel Spacing                       DS: [0.011811, 0.011811]
+(0028,0100) Bits Allocated                      US: 8
+(0028,0101) Bits Stored                         US: 8
+(0028,0102) High Bit                            US: 7
+(0028,0103) Pixel Representation                US: 0
+(0028,0301) Burned In Annotation                CS: 'NO'
+(0028,2110) Lossy Image Compression             CS: '00'
+(0032,000A) Study Status ID                     CS: 'COMPLETED'
+(0040,A491) Completion Flag                     CS: ''
+(0040,A493) Verification Flag                   CS: ''
+(0070,0080) Content Label                       CS: ''
+(0070,0081) Content Description                 LO: ''
+(0070,0084) Content Creator's Name              PN: 'LastName3^FirstName^^^'
+(0400,0500)  Encrypted Attributes Sequence  1 item(s) ---- 
+   (0033,1215) Private tag data                    OB: b'\xff\x1a*\xf4C\x97\xdb\xfe'
+   (0400,0510) Encrypted Content Transfer Syntax U UI: JPEG 2000 Image Compression (Lossless Only)
+   (0400,0520) Encrypted Content                   OB: Array of 480 elements
+   ---------
+(2050,0020) Presentation LUT Shape              CS: 'IDENTITY'
+(7FE0,0010) Pixel Data                          OB: Array of 189578 elements

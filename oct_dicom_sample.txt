@@ -1,0 +1,717 @@
+voldata: Dataset.file_meta -------------------------------
+(0002,0000) File Meta Information Group Length  UL: 424
+(0002,0001) File Meta Information Version       OB: b'\x00\x01'
+(0002,0002) Media Storage SOP Class UID         UI: Ophthalmic Tomography Image Storage
+(0002,0003) Media Storage SOP Instance UID      UI: 1.2.840.114158.509013465980144336510703580232272729276
+(0002,0010) Transfer Syntax UID                 UI: Implicit VR Little Endian
+(0002,0012) Implementation Class UID            UI: 1.2.840.114158.1.1.3
+(0002,0013) Implementation Version Name         SH: 'AcuoWS6.0'
+(0002,0100) Private Information Creator UID     UI: 1.2.840.114158.1.1.3
+(0002,0102) Private Information                 OB: Array of 196 elements
+-------------------------------------------------
+(0008,0005) Specific Character Set              CS: ''
+(0008,0008) Image Type                          CS: ['ORIGINAL', 'PRIMARY']
+(0008,0016) SOP Class UID                       UI: Ophthalmic Tomography Image Storage
+(0008,0018) SOP Instance UID                    UI: 1.2.840.114158.509013465980144336510703580232272729276
+(0008,0020) Study Date                          DA: '28980917'
+(0008,0022) Acquisition Date                    DA: '28980917'
+(0008,0023) Content Date                        DA: '28980917'
+(0008,0030) Study Time                          TM: '091605'
+(0008,0032) Acquisition Time                    TM: '091830'
+(0008,0033) Content Time                        TM: '091830.039000'
+(0008,0050) Accession Number                    SH: '[AccessionNu.0]'
+(0008,0060) Modality                            CS: 'OPT'
+(0008,0061) Modalities in Study                 CS: ['', 'OPT', 'OP', '']
+(0008,0070) Manufacturer                        LO: 'Heidelberg Engineering'
+(0008,0090) Referring Physician's Name          PN: 'LastName1^FirstName^^^'
+(0008,1030) Study Description                   LO: 'OCT'
+(0008,103E) Series Description                  LO: 'Volume IR'
+(0008,1090) Manufacturer's Model Name           LO: 'Spectralis'
+(0008,2218)  Anatomic Region Sequence  1 item(s) ---- 
+   (0008,0100) Code Value                          SH: 'T-AA610'
+   (0008,0104) Code Meaning                        LO: 'Retina'
+   ---------
+(0010,0010) Patient's Name                      PN: 'LastName2^FirstName^^^'
+(0010,0020) Patient ID                          LO: '[PatientID.1]'
+(0010,0030) Patient's Birth Date                DA: '28040212'
+(0012,0062) Patient Identity Removed            CS: 'YES'
+(0012,0063) De-identification Method            LO: 'Basic Application Confidentiality Profile'
+(0012,0064)  De-identification Method Code Sequence  2 item(s) ---- 
+   (0008,0100) Code Value                          SH: '113100'
+   (0008,0102) Coding Scheme Designator            SH: 'DCM'
+   (0008,0104) Code Meaning                        LO: 'Basic Application Confidentiality Profile'
+   ---------
+   (0008,0100) Code Value                          SH: '900901'
+   (0008,0102) Coding Scheme Designator            SH: 'WIF'
+   (0008,0104) Code Meaning                        LO: 'BASIC PROFILE OVERRIDES POTENTIALLY VIOLATE SECURITY STANDARD'
+   (0008,0108) Extended Code Meaning               LT: Array of 31 elements
+   ---------
+(0018,0010) Contrast/Bolus Agent                LO: '[Contrast/Bolus Age]'
+(0018,0015) Body Part Examined                  CS: ''
+(0018,1010) Secondary Capture Device ID         LO: ''
+(0018,1020) Software Versions                   LO: ['SW-VWM 6.16.11.0', 'FW-CAM 2.7.5.0', 'FW-PWS 1.5.5.0', 'FW-TSP 0.0.0.0', 'SW-AQM 6.16.8.0']
+(0018,106A) Synchronization Trigger             CS: 'NO TRIGGER'
+(0018,1800) Acquisition Time Synchronized       CS: 'N'
+(0018,7004) Detector Type                       CS: 'CCD'
+(0018,9073) Acquisition Duration                FD: 3.231
+(0018,A001)  Contributing Equipment Sequence  1 item(s) ---- 
+   (0008,0070) Manufacturer                        LO: 'Claron'
+   (0008,1010) Station Name                        SH: 'IDR-ACUAC-PW01'
+   (0008,1090) Manufacturer's Model Name           LO: 'Deidentification'
+   (0018,1020) Software Versions                   LO: ['WIF 2.1.17', '23.1.0.0']
+   (0018,A002) Contribution DateTime               DT: '20250121132501.612074'
+   (0018,A003) Contribution Description            ST: 'Cleaned'
+   (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+      (0008,0100) Code Value                          SH: '109104'
+      (0008,0102) Coding Scheme Designator            SH: 'DCM'
+      (0008,0104) Code Meaning                        LO: 'De-identifying Equipment'
+      ---------
+   ---------
+(0020,000D) Study Instance UID                  UI: 1.2.840.114158.47465287849254480423799108875624256649
+(0020,000E) Series Instance UID                 UI: 1.2.840.114158.567293497227681070117263378225390355358
+(0020,0010) Study ID                            SH: '[StudyID.2]'
+(0020,0011) Series Number                       IS: '333907001'
+(0020,0012) Acquisition Number                  IS: '1'
+(0020,0013) Instance Number                     IS: '1'
+(0020,0022) Overlay Number                      IS: None
+(0020,0024) Curve Number                        IS: None
+(0020,0026) LUT Number                          IS: None
+(0020,0052) Frame of Reference UID              UI: 1.2.840.114158.49021113808760921317216492206905318324
+(0020,0062) Image Laterality                    CS: 'R'
+(0020,0200) Synchronization Frame of Reference  UI: 1.2.840.114158.54138508530729972085007746333544569017
+(0020,0242) SOP Instance UID of Concatenation S UI: 1.3.6.1.4.1.33437.11.3.587191.38685226864341.4503.3.1
+(0020,1040) Position Reference Indicator        LO: ''
+(0020,9161) Concatenation UID                   UI: 1.2.840.114158.567293497227681070117263378225390355358
+(0020,9162) In-concatenation Number             US: 1
+(0020,9163) In-concatenation Total Number       US: 1
+(0020,9221)  Dimension Organization Sequence  1 item(s) ---- 
+   (0020,9164) Dimension Organization UID          UI: 1.2.840.114158.537881735741537354614341079497024849038
+   ---------
+(0020,9222)  Dimension Index Sequence  2 item(s) ---- 
+   (0020,9165) Dimension Index Pointer             AT: (0020,9056)
+   (0020,9167) Functional Group Pointer            AT: (0020,9111)
+   ---------
+   (0020,9165) Dimension Index Pointer             AT: (0020,9057)
+   (0020,9167) Functional Group Pointer            AT: (0020,9111)
+   ---------
+(0020,9228) Concatenation Frame Offset Number   UL: 0
+(0022,000A) Emmetropic Magnification            FL: None
+(0022,000B) Intra Ocular Pressure               FL: None
+(0022,000C) Horizontal Field of View            FL: None
+(0022,000D) Pupil Dilated                       CS: ''
+(0022,0015)  Acquisition Device Type Code Sequence  1 item(s) ---- 
+   (0008,0100) Code Value                          SH: 'A-00FBE'
+   (0008,0104) Code Meaning                        LO: 'Optical Coherence Tomography Scanner'
+   ---------
+(0022,0017)  Light Path Filter Type Stack Code Sequence  0 item(s) ---- 
+(0022,001B)  Refractive State Sequence  0 item(s) ---- 
+(0022,0030) Axial Length of the Eye             FL: None
+(0022,0035) Depth Spatial Resolution            FL: 7.0
+(0022,0036) Maximum Depth Distortion            FL: 0.5
+(0022,0037) Along-scan Spatial Resolution       FL: 13.0
+(0022,0038) Maximum Along-scan Distortion       FL: 0.5
+(0022,0048) Across-scan Spatial Resolution      FL: 13.0
+(0022,0049) Maximum Across-scan Distortion      FL: 0.5
+(0022,0055) Illumination Wave Length            FL: 880.0
+(0022,0056) Illumination Power                  FL: 1200.0
+(0022,0057) Illumination Bandwidth              FL: 50.0
+(0028,0002) Samples per Pixel                   US: 1
+(0028,0004) Photometric Interpretation          CS: 'MONOCHROME2'
+(0028,0008) Number of Frames                    IS: '25'
+(0028,0010) Rows                                US: 496
+(0028,0011) Columns                             US: 512
+(0028,0100) Bits Allocated                      US: 8
+(0028,0101) Bits Stored                         US: 8
+(0028,0102) High Bit                            US: 7
+(0028,0103) Pixel Representation                US: 0
+(0028,0301) Burned In Annotation                CS: 'NO'
+(0028,2110) Lossy Image Compression             CS: '00'
+(0032,000A) Study Status ID                     CS: 'COMPLETED'
+(0040,0555)  Acquisition Context Sequence  0 item(s) ---- 
+(0040,A491) Completion Flag                     CS: ''
+(0040,A493) Verification Flag                   CS: ''
+(0070,0080) Content Label                       CS: ''
+(0070,0081) Content Description                 LO: ''
+(0070,0084) Content Creator's Name              PN: 'LastName3^FirstName^^^'
+(0400,0500)  Encrypted Attributes Sequence  1 item(s) ---- 
+   (0033,1215) Private tag data                    UN: b'o\xa3\xb6\xb1\xe9\xd1\r\x04'
+   (0400,0510) Encrypted Content Transfer Syntax U UI: Implicit VR Little Endian
+   (0400,0520) Encrypted Content                   OB: Array of 536 elements
+   ---------
+(2050,0020) Presentation LUT Shape              CS: 'IDENTITY'
+(5200,9229)  Shared Functional Groups Sequence  1 item(s) ---- 
+   (0008,1140)  Referenced Image Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   (0020,9071)  Frame Anatomy Sequence  1 item(s) ---- 
+      (0008,2218)  Anatomic Region Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: 'T-AA610'
+         (0008,0104) Code Meaning                        LO: 'Retina'
+         ---------
+      (0020,9072) Frame Laterality                    CS: 'R'
+      ---------
+   (0020,9116)  Plane Orientation Sequence  1 item(s) ---- 
+      (0020,0037) Image Orientation (Patient)         DS: [1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000]
+      ---------
+   (0028,9110)  Pixel Measures Sequence  1 item(s) ---- 
+      (0018,0050) Slice Thickness                     DS: '0.251631'
+      (0028,0030) Pixel Spacing                       DS: [0.003872, 0.011811]
+      ---------
+   ---------
+(5200,9230)  Per-Frame Functional Groups Sequence  25 item(s) ---- 
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195328.714540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195328.714540'
+      (0018,9220) Frame Acquisition Duration          FD: 90.95478935200542
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 1
+      (0020,9157) Dimension Index Values              UL: [1, 1]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 1.509785]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [639.1666870117188, 127.83333587646484, 639.1666870117188, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195328.809540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195328.809540'
+      (0018,9220) Frame Acquisition Duration          FD: 82.25469664550323
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 2
+      (0020,9157) Dimension Index Values              UL: [1, 2]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 1.761416]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [617.8611450195312, 127.83333587646484, 617.8611450195312, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195328.895540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195328.895540'
+      (0018,9220) Frame Acquisition Duration          FD: 83.99844228962917
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 3
+      (0020,9157) Dimension Index Values              UL: [1, 3]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 2.013047]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [596.5555419921875, 127.83333587646484, 596.5555419921875, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195328.997540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195328.997540'
+      (0018,9220) Frame Acquisition Duration          FD: 104.66595093478654
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 4
+      (0020,9157) Dimension Index Values              UL: [1, 4]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 2.264677]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [575.25, 127.83333587646484, 575.25, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195329.155540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195329.155540'
+      (0018,9220) Frame Acquisition Duration          FD: 119.38768961843837
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 5
+      (0020,9157) Dimension Index Values              UL: [1, 5]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 2.516308]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [553.9444580078125, 127.83333587646484, 553.9444580078125, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195329.338540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195329.338540'
+      (0018,9220) Frame Acquisition Duration          FD: 107.63251255385546
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 6
+      (0020,9157) Dimension Index Values              UL: [1, 6]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 2.767939]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [532.638916015625, 127.83333587646484, 532.638916015625, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195329.445540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195329.445540'
+      (0018,9220) Frame Acquisition Duration          FD: 105.8352467416613
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 7
+      (0020,9157) Dimension Index Values              UL: [1, 7]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 3.019570]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [511.3333435058594, 127.83333587646484, 511.3333435058594, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195329.560540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195329.560540'
+      (0018,9220) Frame Acquisition Duration          FD: 83.48883345133189
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 8
+      (0020,9157) Dimension Index Values              UL: [1, 8]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 3.271201]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [490.02777099609375, 127.83333587646484, 490.02777099609375, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195329.677540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195329.677540'
+      (0018,9220) Frame Acquisition Duration          FD: 103.21719797342381
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 9
+      (0020,9157) Dimension Index Values              UL: [1, 9]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 3.522831]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [468.72222900390625, 127.83333587646484, 468.72222900390625, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195329.783540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195329.783540'
+      (0018,9220) Frame Acquisition Duration          FD: 101.30320288526163
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 10
+      (0020,9157) Dimension Index Values              UL: [1, 10]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 3.774462]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [447.41668701171875, 127.83333587646484, 447.41668701171875, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195330.129540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195330.129540'
+      (0018,9220) Frame Acquisition Duration          FD: 115.09243087850146
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 11
+      (0020,9157) Dimension Index Values              UL: [1, 11]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 4.026093]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [426.1111145019531, 127.83333587646484, 426.1111145019531, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195330.244540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195330.244540'
+      (0018,9220) Frame Acquisition Duration          FD: 113.31400587117247
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 12
+      (0020,9157) Dimension Index Values              UL: [1, 12]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 4.277724]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [404.8055725097656, 127.83333587646484, 404.8055725097656, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195330.359540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195330.359540'
+      (0018,9220) Frame Acquisition Duration          FD: 113.83348180402989
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 13
+      (0020,9157) Dimension Index Values              UL: [1, 13]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 4.529355]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [383.5, 127.83333587646484, 383.5, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195330.705540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195330.705540'
+      (0018,9220) Frame Acquisition Duration          FD: 99.03614949417305
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 14
+      (0020,9157) Dimension Index Values              UL: [1, 14]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 4.780985]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [362.1944580078125, 127.83333587646484, 362.1944580078125, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195330.814540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195330.814540'
+      (0018,9220) Frame Acquisition Duration          FD: 120.25454603990607
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 15
+      (0020,9157) Dimension Index Values              UL: [1, 15]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 5.032616]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [340.8888854980469, 127.83333587646484, 340.8888854980469, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195330.928540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195330.928540'
+      (0018,9220) Frame Acquisition Duration          FD: 119.59540727198525
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 16
+      (0020,9157) Dimension Index Values              UL: [1, 16]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 5.284247]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [319.5833435058594, 127.83333587646484, 319.5833435058594, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.043540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.043540'
+      (0018,9220) Frame Acquisition Duration          FD: 117.77663469492799
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 17
+      (0020,9157) Dimension Index Values              UL: [1, 17]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 5.535878]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [298.27777099609375, 127.83333587646484, 298.27777099609375, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.157540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.157540'
+      (0018,9220) Frame Acquisition Duration          FD: 115.55948396929874
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 18
+      (0020,9157) Dimension Index Values              UL: [1, 18]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 5.787509]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [276.97222900390625, 127.83333587646484, 276.97222900390625, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.271540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.271540'
+      (0018,9220) Frame Acquisition Duration          FD: 114.58767718649054
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 19
+      (0020,9157) Dimension Index Values              UL: [1, 19]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 6.039139]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [255.66668701171875, 127.83333587646484, 255.66668701171875, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.378540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.378540'
+      (0018,9220) Frame Acquisition Duration          FD: 114.05776474810759
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 20
+      (0020,9157) Dimension Index Values              UL: [1, 20]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 6.290770]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [234.36111450195312, 127.83333587646484, 234.36111450195312, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.496540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.496540'
+      (0018,9220) Frame Acquisition Duration          FD: 114.95839651841086
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 21
+      (0020,9157) Dimension Index Values              UL: [1, 21]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 6.542401]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [213.05557250976562, 127.83333587646484, 213.05557250976562, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.610540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.610540'
+      (0018,9220) Frame Acquisition Duration          FD: 115.16743943291743
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 22
+      (0020,9157) Dimension Index Values              UL: [1, 22]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 6.794032]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [191.75001525878906, 127.83333587646484, 191.75001525878906, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.724540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.724540'
+      (0018,9220) Frame Acquisition Duration          FD: 114.42425858533912
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 23
+      (0020,9157) Dimension Index Values              UL: [1, 23]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 7.045663]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [170.44444274902344, 127.83333587646484, 170.44444274902344, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.838540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.838540'
+      (0018,9220) Frame Acquisition Duration          FD: 112.99339567257502
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 24
+      (0020,9157) Dimension Index Values              UL: [1, 24]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 7.297294]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [149.13890075683594, 127.83333587646484, 149.13890075683594, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+   (0020,9111)  Frame Content Sequence  1 item(s) ---- 
+      (0018,9074) Frame Acquisition DateTime          DT: '28980917195331.945540'
+      (0018,9151) Frame Reference DateTime            DT: '28980917195331.945540'
+      (0018,9220) Frame Acquisition Duration          FD: 93.13073512102437
+      (0020,9056) Stack ID                            SH: '1'
+      (0020,9057) In-Stack Position Number            UL: 25
+      (0020,9157) Dimension Index Values              UL: [1, 25]
+      ---------
+   (0020,9113)  Plane Position Sequence  1 item(s) ---- 
+      (0020,0032) Image Position (Patient)            DS: [1.509785, 0.000000, 7.548924]
+      ---------
+   (0022,0031)  Ophthalmic Frame Location Sequence  1 item(s) ---- 
+      (0008,1150) Referenced SOP Class UID            UI: Ophthalmic Photography 8 Bit Image Storage
+      (0008,1155) Referenced SOP Instance UID         UI: 1.2.840.114158.533413886009148308910096601365157670076
+      (0022,0032) Reference Coordinates               FL: [127.83333587646484, 127.83333587646484, 127.83333587646484, 639.1666870117188]
+      (0022,0039) Ophthalmic Image Orientation        CS: 'LINEAR'
+      (0040,A170)  Purpose of Reference Code Sequence  1 item(s) ---- 
+         (0008,0100) Code Value                          SH: '121311'
+         (0008,0104) Code Meaning                        LO: 'Localizer'
+         ---------
+      ---------
+   ---------
+(7FE0,0010) Pixel Data                          OW: Array of 6348800 elements

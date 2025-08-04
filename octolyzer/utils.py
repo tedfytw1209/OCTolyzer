@@ -511,10 +511,8 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     except ValueError as msg:
         logging.append(msg)
         raise msg
-    print('voldata:', voldata)
     # slo data and metadata
     slo_voldata = pydicom.dcmread(dcm_slo_path)
-    print('slo_voldata:', slo_voldata)
     slo = slo_voldata.pixel_array.astype(float) / 255
     slo_N = slo.shape[0]
     slo_metadict = {
@@ -525,59 +523,46 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         "scale_y": slo_voldata.PixelSpacing[0],
         "scale_x": slo_voldata.PixelSpacing[1],
         "slice_thickness_mm": getattr(slo_voldata, "SpacingBetweenSlices", slo_voldata.get("SliceThickness", None)),
-        "eye": slo_voldata.ImageLaterality,
+        "laterality": slo_voldata.ImageLaterality,
         "manufacturer": slo_voldata.get("Manufacturer", None)
     }
     slo_metadict["slo_resolution_px"] = slo_N
     slo_metadict["field_of_view_mm"] = slo_metadict["scale_x"] * slo_N
     
     # bscan metadata
-    metadata_dict = {}
-    for elem in voldata.iterall():
-        if elem.VR != "SQ":  # SQ = Sequence，先略過巢狀資料
-            metadata_dict[elem.name] = str(elem.value)
-    vol_metadata = metadata_dict
+    pixel_spacing = voldata['SharedFunctionalGroupsSequence'][0]['PixelMeasuresSequence'][0]['PixelSpacing']
+    slice_thickness = float(voldata['SharedFunctionalGroupsSequence'][0]['PixelMeasuresSequence'][0]['SliceThickness'])
+    vol_metadata = {
+        "modality": voldata.Modality,
+        "sop_class": str(voldata.SOPClassUID),
+        "sop_instance_uid": str(voldata.SOPInstanceUID),
+        "study_instance_uid": str(voldata.StudyInstanceUID),
+        "series_instance_uid": str(voldata.SeriesInstanceUID),
+        "num_frames": int(voldata.NumberOfFrames) or 1,
+        "rows": voldata.Rows,
+        "cols": voldata.Columns,
+        "scale_y": pixel_spacing[0],
+        "scale_x": pixel_spacing[1],
+        "scale_z": slice_thickness,
+        "slice_thickness_mm": slice_thickness,
+        "laterality": voldata.ImageLaterality,
+        "manufacturer": voldata.get("Manufacturer", None)
+    }
     eye = vol_metadata["laterality"]
     scale_z, scale_x, scale_y = vol_metadata["scale_z"], vol_metadata["scale_x"], vol_metadata["scale_y"]
-    bscan_meta = vol_metadata["bscan_meta"]
+    bscan_meta = vol_metadata['PerFrameFunctionalGroupsSequence']
     
     # Detect scan pattern
-    if scan_type == "Macular" and scale_z != 0:
-        if radial == 0:
-            bscan_type = "Ppole"
-            msg = f"Loaded a posterior pole scan with {N_scans} B-scans."
-        else:
-            bscan_type = "Radial"
-            msg = f"Loaded a radial scan with {N_scans} B-scans."
-        logging.append(msg)
-        if verbose:
-            print(msg)
-    else: #Not Used
-        stp = bscan_meta[0]["start_pos"][0]
-        enp = bscan_meta[0]["end_pos"][1]
-        if np.allclose(stp,0,atol=1e-3):
-            bscan_type = "H-line"
-        elif np.allclose(enp,0,atol=1e-3):
-            bscan_type = "V-line"
-        else:
-            bscan_type = "AV-line"
-        msg = f"Loaded a single {bscan_type} B-scan."
-        logging.append(msg)
-        if verbose:
-            print(msg)
-
-    # Optional to try compensate for vessel shadows and brighten B-scans for improved
-    # choroid visualisation. 
-    # When bscan_type is "AV-line", we do not compensate for shadows
-    if preprocess:
-        if bscan_type != "AV-line":
-            msg = "Preprocessing by compensating for vessel shadows and brightening choroid..."
-            bscan_data = np.array([normalise_brightness(shadow_compensate(img)) for img in bscan_data])
-        elif bscan_type == "AV-line":
-            msg = "AV-line scans are not shadow-compensated and left raw for further processing."
-        logging.append(msg)
-        if verbose:
-            print(msg)
+    assert scan_type == "Macular" and scale_z != 0
+    if radial == 0:
+        bscan_type = "Ppole"
+        msg = f"Loaded a posterior pole scan with {N_scans} B-scans."
+    else:
+        bscan_type = "Radial"
+        msg = f"Loaded a radial scan with {N_scans} B-scans."
+    logging.append(msg)
+    if verbose:
+        print(msg)
 
     # retinal layers
     msg = ".dcm file skips retinal layer segmentations."
@@ -593,17 +578,12 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     if verbose:
         print(msg)
     all_mm_points = []
-    all_quality = []
     for m in bscan_meta:
-        all_quality.append(m["quality"])
-        st = m["start_pos"]
-        en = m["end_pos"]
+        img_position = m["PlanePositionSequence"][0]["ImagePositionPatient"]
+        st = img_position[-1] # Z-coordinate of the start position
+        en = img_position[-1] + vol_metadata["scale_z"]
         point = np.array([st, en])
         all_mm_points.append(point)
-    
-    # Only relevant for Ppole data
-    quality_mu = np.mean(all_quality)
-    quality_sig = np.std(all_quality)
     
     # Convert start and end B-scan locations from mm to pixel
     all_px_points = []
@@ -627,7 +607,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     slo_acq = np.pad(slo_acq, (pad_y, pad_x, (0,0)), mode='constant')
     
     # For peripapillary scans, we draw a circular ROI
-    if bscan_type == "Peripapillary":
+    if bscan_type == "Peripapillary": ## Not Used
         peripapillary_coords = all_px_points[0].astype(int)
 
         OD_edge, OD_center = peripapillary_coords
@@ -643,10 +623,9 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         slo_metadict["acquisition_radius_mm"] = np.round(circular_radius*slo_metadict["scale_x"],2)
         slo_metadict["acquisition_optic_disc_center_x"] = OD_center[0]
         slo_metadict["acquisition_optic_disc_center_y"] = OD_center[1]
-
     # For macular scans, we generate a line for each B-scan location and 
     # superimpose the acquisition line onto a copy of the en face SLO.
-    else: ## Not Used
+    else:
         # Colour palette for acquisition lines, helpful for Ppole map registration onto SLO
         # Use green for single-line scans
         if N_scans == 1:
@@ -679,13 +658,12 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
                 slo_acq[pad_y[0]+y_idx, pad_x[0]+x_idx] = loc_colour
                     
     # Work out region of interest (ROI) captured by B-scan, helps determine maximum ROI to measure
-    if scan_type != "Peripapillary": ## Not Used
+    if scan_type != "Peripapillary":
         # For macular scans, use fovea-centred scan endpoints to work out acquistion ROI
         ROI_pts = all_px_points[fovea_slice_num]
         ROI_xy = np.abs(np.diff(ROI_pts, axis=0)) * np.array([scale_x, scale_x])
         ROI_mm = np.sqrt(np.square(ROI_xy).sum())
-
-    else:
+    else: ## Not Used
         # For peripapillary scans, use circumference of circular acquisition location using
         # OD centre and acquisition circular edge (forming a radius)
         ROI_mm = 2*np.pi*np.abs(np.diff(all_mm_points[0][:,0]))[0]
@@ -705,7 +683,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     bscan_metadict["bscan_scale_y"] = 1e3*scale_y
     bscan_metadict["bscan_ROI_mm"] = ROI_mm
     bscan_metadict["scale_units"] = "microns_per_pixel"
-    bscan_metadict["avg_quality"] = quality_mu
+    bscan_metadict["avg_quality"] = None
     bscan_metadict["retinal_layers_N"] = N_rlayers
 
     # Remove duplicates: store scales as microns-per-pixel, laterality=eye
