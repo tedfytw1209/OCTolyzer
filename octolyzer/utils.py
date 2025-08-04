@@ -528,10 +528,11 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     }
     slo_metadict["slo_resolution_px"] = slo_N
     slo_metadict["field_of_view_mm"] = slo_metadict["scale_x"] * slo_N
+    print("slo_metadict", slo_metadict)
     
     # bscan metadata
-    pixel_spacing = voldata['SharedFunctionalGroupsSequence'][0]['PixelMeasuresSequence'][0]['PixelSpacing']
-    slice_thickness = float(voldata['SharedFunctionalGroupsSequence'][0]['PixelMeasuresSequence'][0]['SliceThickness'])
+    pixel_spacing = voldata['SharedFunctionalGroupsSequence'][0]['PixelMeasuresSequence'][0]['PixelSpacing'].value
+    slice_thickness = float(voldata['SharedFunctionalGroupsSequence'][0]['PixelMeasuresSequence'][0]['SliceThickness'].value)
     vol_metadata = {
         "modality": voldata.Modality,
         "sop_class": str(voldata.SOPClassUID),
@@ -548,6 +549,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         "laterality": voldata.ImageLaterality,
         "manufacturer": voldata.get("Manufacturer", None)
     }
+    print("vol_metadata", vol_metadata)
     eye = vol_metadata["laterality"]
     scale_z, scale_x, scale_y = vol_metadata["scale_z"], vol_metadata["scale_x"], vol_metadata["scale_y"]
     bscan_meta = vol_metadata['PerFrameFunctionalGroupsSequence']
