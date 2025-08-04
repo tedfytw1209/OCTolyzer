@@ -552,7 +552,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     print("vol_metadata", vol_metadata)
     eye = vol_metadata["laterality"]
     scale_z, scale_x, scale_y = vol_metadata["scale_z"], vol_metadata["scale_x"], vol_metadata["scale_y"]
-    bscan_meta = vol_metadata['PerFrameFunctionalGroupsSequence']
+    bscan_meta = voldata['PerFrameFunctionalGroupsSequence']
     
     # Detect scan pattern
     assert scan_type == "Macular" and scale_z != 0
@@ -581,7 +581,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         print(msg)
     all_mm_points = []
     for m in bscan_meta:
-        img_position = m["PlanePositionSequence"][0]["ImagePositionPatient"]
+        img_position = m["PlanePositionSequence"][0]["ImagePositionPatient"].value
         st = img_position[-1] # Z-coordinate of the start position
         en = img_position[-1] + vol_metadata["scale_z"]
         point = np.array([st, en])
