@@ -104,19 +104,17 @@ def run(args):
     """
     
     # analysis directory
-    analysis_directory = args["analysis_directory"]
-    if not os.path.exists(analysis_directory):
-        print("Cannot find directory images/ with files to analyse.")
-        print("Please create directory and place images inside. Exiting analysis")
-        sys.exit()
+    analysis_fname = args["analysis_csv"]
+    analysis_df = pd.read_csv(analysis_fname)
 
     # Detect .vol files from analysis_directory
-    vol_paths = sorted(Path(analysis_directory).glob("*.vol"))
-    N = len(vol_paths)
+    oct_paths = analysis_df['Path'].tolist()
+    enface_paths = analysis_df['Enface Path'].tolist()
+    N = len(oct_paths)
     if N > 0:
-        print(f"Found {len(vol_paths)} to analyse.")
+        print(f"Found {len(oct_paths)} to analyse.")
     else:
-        print(f'Cannot find any supported files in {analysis_directory}. Please check directory. Exiting analysis')
+        print(f'Cannot find any supported files in {analysis_fname}. Please check directory. Exiting analysis')
         return
 
     # output directory
@@ -175,10 +173,10 @@ def run(args):
     # Loop through .vol files, segment, measure and save out in analyse()
     st = time.time()
     oct_slo_result_dict = {}
-    for path in tqdm(vol_paths, desc='Analysing...', leave=False):
-        
+    for (oct_path, enface_path) in tqdm(zip(oct_paths, enface_paths), desc='Analysing...', leave=False):
+
         # Initialise results dictionary for .vol file and create paths to results
-        fname_type = os.path.split(path)[-1]
+        fname_type = os.path.split(oct_path)[-1]
         oct_slo_result_dict[fname_type] = {}
         fname = fname_type.split(".")[0]
         fname_path = os.path.join(save_directory, fname)
@@ -209,16 +207,16 @@ def run(args):
 
                 # Catch any exceptions 
                 try:
-
                     # Analyse file
-                    output = analyse.analyse(path, 
+                    output = analyse.analyse(oct_path, 
                                     save_directory, 
                                     choroidalyzer, 
                                     slosegmenter, 
                                     avosegmenter,
                                     fovsegmenter,
                                     deepgpet,
-                                    param_dict)
+                                    param_dict,
+                                    enface_path=enface_path)
                     slo_analysis_output, oct_analysis_output = output
 
                     # Store results for collating
@@ -243,7 +241,10 @@ def run(args):
                     # Try at least save out metadata from loading volfile for failed
                     # file - making sure to mark in FAILED column
                     try:
-                        _, metadata, _, _, _ = utils.load_volfile(path, verbose=False)
+                        if oct_path.endswith('.vol'):
+                            _, metadata, _, _, _ = utils.load_volfile(oct_path, verbose=False)
+                        elif oct_path.endswith('.dcm'):
+                            _, metadata, _, _, _ = utils.load_dcmfile(oct_path, enface_path=enface_path, verbose=False)
                         metadata['FAILED'] = True
                         if metadata["bscan_type"] == 'Peripapillary':
                             del metadata['stxy_coord']
@@ -251,7 +252,7 @@ def run(args):
                     # Catch any exceptions with failing to even load image and metadata from 
                     # volfile
                     except:
-                        metadata = {'Filename':os.path.split(path)[1]}
+                        metadata = {'Filename':os.path.split(oct_path)[1]}
                         fail_load = "Failed to even load path, check utils.load_volfile"
                         print(fail_load)
                         log.append(fail_load)
@@ -264,14 +265,15 @@ def run(args):
             else:
                 
                 # Analyse file
-                output = analyse.analyse(path, 
+                output = analyse.analyse(oct_path, 
                                 save_directory, 
                                 choroidalyzer, 
                                 slosegmenter, 
                                 avosegmenter,
                                 fovsegmenter,
                                 deepgpet,
-                                param_dict)
+                                param_dict,
+                                enface_path=enface_path)
                 slo_analysis_output, oct_analysis_output = output
 
                 # Store results for collating

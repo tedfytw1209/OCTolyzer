@@ -48,6 +48,7 @@ def analyse(path,
             fov_model=None,
             deepgpet=None,
             param_dict=None,
+            enface_path=None,
             verbose=True):
     """
     Analyses a a single file containing metadata, and paired SLO and OCT image data, 
@@ -208,8 +209,12 @@ def analyse(path,
             print(msg)  
 
     # Load data from .vol
-    output = utils.load_volfile(path, preprocess=preprocess_data*analyse_choroid, verbose=verbose,
-                                custom_maps=custom_maps, logging=logging_list)
+    if enface_path is not None:
+        output = utils.load_dcmfile(path, enface_path=enface_path, preprocess=preprocess_data*analyse_choroid, verbose=verbose,
+                                    custom_maps=custom_maps, logging=logging_list)
+    else:
+        output = utils.load_volfile(path, preprocess=preprocess_data*analyse_choroid, verbose=verbose,
+                                    custom_maps=custom_maps, logging=logging_list)
     bscan_data, metadata, slo_output, layer_pairwise, logging_list = output
     (slo, slo_acq_fixed, slo_acq, (slo_pad_x, slo_pad_y)) = slo_output
     slo_pad_xy = np.array([slo_pad_x[0], slo_pad_y[0]])
