@@ -10,6 +10,7 @@ from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import SimpleITK as sitk
+from datetime import datetime
 
 import eyepy
 from eyepy.core import utils as eyepy_utils
@@ -526,16 +527,27 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         "scale_x": slo_voldata.PixelSpacing[1],
         "slice_thickness_mm": getattr(slo_voldata, "SpacingBetweenSlices", slo_voldata.get("SliceThickness", None)),
         "laterality": slo_voldata.ImageLaterality,
-        "manufacturer": slo_voldata.get("Manufacturer", None)
+        "manufacturer": slo_voldata.get("Manufacturer", None),
+        "field_size": slo_voldata.get("HorizontalFieldOfView", None),
     }
     slo_metadict["slo_resolution_px"] = slo_N
     slo_metadict["field_of_view_mm"] = slo_metadict["scale_x"] * slo_N
     print("slo_metadict", slo_metadict)
-    
+    #other metadata
+    # Extract dates
+    try:
+        visit_date = datetime.strptime(voldata.StudyDate, "%Y%m%d").isoformat()
+    except:
+        visit_date = "Unknown"
+    try:
+        exam_time = datetime.strptime(voldata.StudyDate + voldata.ContentTime.split(".")[0], "%Y%m%d%H%M%S").isoformat()
+    except:
+        exam_time = "Unknown"
     # bscan metadata
     pixel_spacing = voldata['SharedFunctionalGroupsSequence'][0]['PixelMeasuresSequence'][0]['PixelSpacing'].value
     slice_thickness = float(voldata['SharedFunctionalGroupsSequence'][0]['PixelMeasuresSequence'][0]['SliceThickness'].value)
     vol_metadata = {
+        'Filename': fname,
         "modality": voldata.Modality,
         "sop_class": str(voldata.SOPClassUID),
         "sop_instance_uid": str(voldata.SOPInstanceUID),
@@ -549,7 +561,13 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         "scale_z": slice_thickness,
         "slice_thickness_mm": slice_thickness,
         "laterality": voldata.ImageLaterality,
-        "manufacturer": voldata.get("Manufacturer", None)
+        "manufacturer": voldata.get("Manufacturer", None),
+        'scale_units': 'microns_per_pixel',
+        'retinal_layers_N': 2,   # placeholder
+        'scan_focus': -1.77,     # placeholder
+        'visit_date': visit_date,
+        'exam_time': exam_time,
+        'bscan_type': 'H-line',
     }
     print("vol_metadata", vol_metadata)
     eye = vol_metadata["laterality"]
@@ -584,8 +602,8 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     all_mm_points = [] # TODO: need check
     for m in bscan_meta:
         img_position = m["PlanePositionSequence"][0]["ImagePositionPatient"].value
-        st = (img_position[0], img_position[2])
-        en = (img_position[0], img_position[2] + vol_metadata["scale_z"])
+        st = (img_position[1], img_position[2])
+        en = (img_position[1] + slo_metadict["field_of_view_mm"], img_position[2])
         point = np.array([st, en])
         all_mm_points.append(point)
     
@@ -677,9 +695,9 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     # Create DataFrame of metadata
     bscan_metadict = {}
     bscan_metadict["Filename"] = fname
-    if eye  == 'OD':
+    if eye  == 'R':
         bscan_metadict["eye"] = 'Right'
-    elif eye == 'OS':
+    elif eye == 'L':
         bscan_metadict["eye"] = 'Left'
     bscan_metadict["bscan_type"] = bscan_type
     bscan_metadict["bscan_resolution_x"] = N
