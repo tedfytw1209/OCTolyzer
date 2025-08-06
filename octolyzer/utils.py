@@ -712,7 +712,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
 
     # Remove duplicates: store scales as microns-per-pixel, laterality=eye
     slo_metadict["slo_scale_xy"] = 1e3*slo_metadict["scale_x"]
-    for key in ["laterality", "scale_x", "scale_y", "scale_unit"]:
+    for key in ["laterality", "scale_x", "scale_y"]:
         del slo_metadict[key]
     slo_metadict["location"] = scan_type.lower()
     slo_metadict["slo_modality"] = slo_metadict.pop("modality")
