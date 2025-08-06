@@ -525,7 +525,6 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         "rows": slo_voldata.Rows, "cols": slo_voldata.Columns,
         "scale_y": slo_voldata.PixelSpacing[0],
         "scale_x": slo_voldata.PixelSpacing[1],
-        "slice_thickness_mm": getattr(slo_voldata, "SpacingBetweenSlices", slo_voldata.get("SliceThickness", None)),
         "laterality": slo_voldata.ImageLaterality,
         "manufacturer": slo_voldata.get("Manufacturer", None),
         "field_size": slo_voldata.get("HorizontalFieldOfView", None),

@@ -236,7 +236,6 @@ def analyse(path,
     else:
         slo_location = "Macula"
     eye = metadata["eye"]
-    scan_type = metadata["bscan_type"]
 
     # Alter feature measurement distance for single/radial linescans based on bscan_ROI_mm
     if scan_location == 'macular':
@@ -544,6 +543,8 @@ def analyse(path,
             # fovea_slice_num = N_scans//2 
             
             # Method 2: detect fovea based on the highest score from Choroidalyzer, unreliable due to poor segmentation but mostly correct.
+            print('scan_type', scan_type)
+            print('fov_scores', fov_scores)
             if scan_type == 'Ppole':
                 fovea_slice_num = int(fov_scores.argmax(axis=0)[0])
             else:
