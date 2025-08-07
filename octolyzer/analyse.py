@@ -545,8 +545,12 @@ def analyse(path,
             # Method 2: detect fovea based on the highest score from Choroidalyzer, unreliable due to poor segmentation but mostly correct.
             print('scan_type', scan_type)
             print('fov_scores', fov_scores)
-            if scan_type == 'Ppole':
-                fovea_slice_num = int(fov_scores.argmax(axis=0)[0])
+            if scan_type == 'Ppole': #TMP CHANGE
+                try:
+                    fovea_slice_num = int(fov_scores.argmax(axis=0)[0])
+                except Exception as e:
+                    logging_list.append(f"Error occurred while determining fovea slice number: {e}")
+                    fovea_slice_num = int(fov_scores.argmax(axis=0))
             else:
                 fovea_slice_num = N_scans//2 
             

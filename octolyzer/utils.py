@@ -574,16 +574,35 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     bscan_meta = voldata['PerFrameFunctionalGroupsSequence']
     
     # Detect scan pattern
-    assert scan_type == "Macular" and scale_z != 0
-    if radial == 0:
-        bscan_type = "Ppole"
-        msg = f"Loaded a posterior pole scan with {N_scans} B-scans."
+    if scan_type == "Peripapillary":
+        bscan_type = scan_type
+        msg = f"Loaded a peripapillary (circular) B-scan."
+        logging.append(msg)
+        if verbose:
+            print(msg)
+    elif scan_type == "Macular" and scale_z != 0:
+        if radial == 0:
+            bscan_type = "Ppole"
+            msg = f"Loaded a posterior pole scan with {N_scans} B-scans."
+        else:
+            bscan_type = "Radial"
+            msg = f"Loaded a radial scan with {N_scans} B-scans."
+        logging.append(msg)
+        if verbose:
+            print(msg)
     else:
-        bscan_type = "Radial"
-        msg = f"Loaded a radial scan with {N_scans} B-scans."
-    logging.append(msg)
-    if verbose:
-        print(msg)
+        stp = bscan_meta[0]["start_pos"][0]
+        enp = bscan_meta[0]["end_pos"][1]
+        if np.allclose(stp,0,atol=1e-3):
+            bscan_type = "H-line"
+        elif np.allclose(enp,0,atol=1e-3):
+            bscan_type = "V-line"
+        else:
+            bscan_type = "AV-line"
+        msg = f"Loaded a single {bscan_type} B-scan."
+        logging.append(msg)
+        if verbose:
+            print(msg)
 
     # retinal layers
     msg = ".dcm file skips retinal layer segmentations."
