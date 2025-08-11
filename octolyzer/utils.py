@@ -567,9 +567,8 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         'scan_focus': -1.77,     # placeholder
         'visit_date': visit_date,
         'exam_time': exam_time,
-        'bscan_type': 'H-line',
+        'bscan_type': bscan_type,
     }
-    print("vol_metadata", vol_metadata)
     eye = vol_metadata["laterality"]
     scale_z, scale_x, scale_y = vol_metadata["scale_z"], vol_metadata["scale_x"], vol_metadata["scale_y"]
     bscan_meta = voldata['PerFrameFunctionalGroupsSequence']
@@ -610,8 +609,8 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     logging.append(msg)
     if verbose:
         print(msg)
-    fake_ILM = np.array([(int(i),120) for i in range(M)])
-    fake_BM = np.array([(int(i),150) for i in range(M)])
+    fake_ILM = np.array([(int(i),120) for i in range(N)])
+    fake_BM = np.array([(int(i),150) for i in range(N)])
     fake_ILM_BM = [np.array([fake_ILM, fake_BM])] * N_scans
     layer_pairwise = {k : fake_ILM_BM for k in custom_maps}
     layer_pairwise["ILM_BM"] = fake_ILM_BM
@@ -622,7 +621,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     logging.append(msg)
     if verbose:
         print(msg)
-    all_mm_points = [] # TODO: need check
+    all_mm_points = [] # TODO: need check, all_px_points shape (25, 2, 2)
     for m in bscan_meta:
         img_position = m["PlanePositionSequence"][0]["ImagePositionPatient"].value
         st = (img_position[0], img_position[2])
