@@ -1133,7 +1133,7 @@ NOTE: Subregion volumes will not be computed for CVI map."""
                                                   fovea, 
                                                   fovea_slice_num, 
                                                   bscan_scale, 
-                                                  scaleZ,
+                                                  bscan_delta=scaleZ,
                                                   slo_N=slo_N, 
                                                   oct_N=N,
                                                   log_list=[],
