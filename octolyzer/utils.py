@@ -609,7 +609,10 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     logging.append(msg)
     if verbose:
         print(msg)
-    layer_pairwise = {k: [np.array([0,0])] for k in custom_maps.keys()}
+    fake_ILM = np.array([(int(i*M/100),150) for i in range(100)])
+    fake_BM = np.array([(int(i*M/100),150) for i in range(100)])
+    fake_ILM_BM = [np.array([fake_ILM, fake_BM])]
+    layer_pairwise = {k : fake_ILM_BM for k in custom_maps.keys()}
     N_rlayers = 0
 
     # Construct slo-acquisition image and extract quality of B-scan    
