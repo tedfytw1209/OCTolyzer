@@ -566,8 +566,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         'retinal_layers_N': 2,   # placeholder
         'scan_focus': -1.77,     # placeholder
         'visit_date': visit_date,
-        'exam_time': exam_time,
-        'bscan_type': bscan_type,
+        'exam_time': exam_time
     }
     eye = vol_metadata["laterality"]
     scale_z, scale_x, scale_y = vol_metadata["scale_z"], vol_metadata["scale_x"], vol_metadata["scale_y"]
