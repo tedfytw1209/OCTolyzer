@@ -199,7 +199,7 @@ def collate_results(result_dict, save_directory, analyse_choroid=1, analyse_slo=
     all_oct_radial_df = pd.DataFrame()
     for fname_type, output in result_dict.items():
         
-        fname = fname_type.split(".")[0]
+        fname = fname_type.rsplit('.', 1)[0]
         all_logging_list.append(f"\n\nANALYSIS LOG OF {fname_type}")
 
         # Create default dataframe for failed individuals and save out error
