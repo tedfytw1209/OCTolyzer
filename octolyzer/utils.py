@@ -612,7 +612,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     fake_ILM = np.array([(int(i*M/100),150) for i in range(100)])
     fake_BM = np.array([(int(i*M/100),150) for i in range(100)])
     fake_ILM_BM = [np.array([fake_ILM, fake_BM])] * N_scans
-    layer_pairwise = {k : fake_ILM_BM for k in custom_maps.keys()}
+    layer_pairwise = {k : fake_ILM_BM for k in custom_maps}
     layer_pairwise["ILM_BM"] = fake_ILM_BM
     N_rlayers = 0
 
