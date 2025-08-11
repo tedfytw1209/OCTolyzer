@@ -505,6 +505,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     eyepy_import = False
     try: 
         #voldata = eyepy.import_heyex_vol(vol_path)
+        #(25, 496, 512)
         voldata = pydicom.dcmread(dcm_oct_path)
         # pixel data
         bscan_data = voldata.pixel_array / 255
@@ -523,14 +524,14 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         "sop_class": str(slo_voldata.SOPClassUID),
         "num_frames": slo_voldata.NumberOfFrames or 1,
         "rows": slo_voldata.Rows, "cols": slo_voldata.Columns,
-        "scale_y": slo_voldata.PixelSpacing[0],
-        "scale_x": slo_voldata.PixelSpacing[1],
+        "scale_x": slo_voldata.PixelSpacing[0], #row spacing
+        "scale_y": slo_voldata.PixelSpacing[1], #column spacing
         "laterality": slo_voldata.ImageLaterality,
         "manufacturer": slo_voldata.get("Manufacturer", None),
         "field_size": slo_voldata.get("HorizontalFieldOfView", None),
     }
-    slo_metadict["slo_resolution_px"] = slo_N
-    slo_metadict["field_of_view_mm"] = slo_metadict["scale_x"] * slo_N
+    slo_metadict["slo_resolution_px"] = slo_N #e.g. 768
+    slo_metadict["field_of_view_mm"] = slo_metadict["scale_x"] * slo_N #e.g. 768*0.011811=9.07
     print("slo_metadict", slo_metadict)
     #other metadata
     # Extract dates
@@ -555,10 +556,10 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         "num_frames": int(voldata.NumberOfFrames) or 1,
         "rows": voldata.Rows,
         "cols": voldata.Columns,
-        "scale_y": pixel_spacing[0],
-        "scale_x": pixel_spacing[1],
-        "scale_z": slice_thickness,
-        "slice_thickness_mm": slice_thickness,
+        "scale_y": pixel_spacing[0], # e.g. 0.003872, row spacing
+        "scale_x": pixel_spacing[1], # e.g. 0.011811, column spacing
+        "scale_z": slice_thickness, # e.g. 0.251631
+        "slice_thickness_mm": slice_thickness, # e.g. 0.251631
         "laterality": voldata.ImageLaterality,
         "manufacturer": voldata.get("Manufacturer", None),
         'scale_units': 'microns_per_pixel',
@@ -624,8 +625,8 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     all_mm_points = [] # TODO: need check
     for m in bscan_meta:
         img_position = m["PlanePositionSequence"][0]["ImagePositionPatient"].value
-        st = (img_position[1], img_position[2])
-        en = (img_position[1] + slo_metadict["field_of_view_mm"], img_position[2])
+        st = (img_position[0], img_position[2])
+        en = (img_position[0] + scale_x*N, img_position[2])
         point = np.array([st, en])
         all_mm_points.append(point)
     
