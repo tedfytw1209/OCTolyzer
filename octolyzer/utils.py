@@ -755,7 +755,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         print(msg)
 
     # collect SLO output
-    slo_output = (slo, slo_acq_fixed, slo_acq, (-pad_x,-pad_y))
+    slo_output = (slo, slo_acq_fixed, slo_acq, (pad_x,pad_y))
         
     return bscan_data, metadata, slo_output, layer_pairwise, logging
 
