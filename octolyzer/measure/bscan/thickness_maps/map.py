@@ -716,7 +716,47 @@ def trim_map(depth_map, mask, length=2):
     return new_map
 
 
+def _pad_map_to_slo_canvas(map2d, mask2d, fovea_in_slo, slo_V_t, slo_V_b, slo_N):
+    """
+    將 (slo_V, slo_N) 的地圖，沿著 fovea 的 y 置中到 SLO 畫布 (slo_N, slo_N)。
+    超出範圍的部分裁切，畫布以 NaN/False 補齊。
+    """
+    map2d = map2d.astype(np.float64)
+    mask2d = mask2d.astype(bool)
 
+    H, W = map2d.shape
+    assert W == slo_N, f"map width ({W}) must equal slo_N ({slo_N})"
+
+    # 以黃斑為基準的垂直定位
+    y0 = int(round(fovea_in_slo[1] - slo_V_b))   # map 放到 SLO 的起始 y
+    y1 = y0 + H                                  # map 放到 SLO 的結束 y（不含）
+
+    # 計算與 SLO 畫布交集（目的區）
+    dst_y0 = max(0, y0)
+    dst_y1 = min(slo_N, y1)
+
+    # 若完全落在畫布外，回傳全 NaN/False
+    if dst_y0 >= dst_y1:
+        canvas = np.full((slo_N, slo_N), np.nan, dtype=np.float64)
+        canvas_mask = np.zeros((slo_N, slo_N), dtype=bool)
+        return canvas, canvas_mask, (0, 0)
+
+    # 對應 map 原圖上的來源區（裁掉超出畫布的上/下緣）
+    src_y0 = dst_y0 - y0
+    src_y1 = src_y0 + (dst_y1 - dst_y0)
+
+    # 準備 SLO 畫布
+    canvas = np.full((slo_N, slo_N), np.nan, dtype=np.float64)
+    canvas_mask = np.zeros((slo_N, slo_N), dtype=bool)
+
+    # 貼上 map 與 mask
+    canvas[dst_y0:dst_y1, :] = map2d[src_y0:src_y1, :]
+    canvas_mask[dst_y0:dst_y1, :] = mask2d[src_y0:src_y1, :]
+
+    # 回傳實際在 map 端被裁掉的上/下 padding 量（資訊用途）
+    pad_top = max(0, -y0)
+    pad_bot = max(0, y1 - slo_N)
+    return canvas, canvas_mask, (pad_top, pad_bot)
 
 def construct_map(slo, slo_acq, slo_acq_pad, 
                   reg_chorsegs, fovea, fovea_slice_num, 
@@ -863,6 +903,17 @@ def construct_map(slo, slo_acq, slo_acq_pad,
     if ves_chorsegs is not None:
         cvi_map, _ = build_chth_map(chor_cvi_data, chor_fovs, chor_stxs, fovea_in_slo, 
                                      N_stack, slo_Vs, slo_N=slo_N, line_distance=line_distance, verbose=verbose)
+    
+    # 0811 add
+    ch_map, ch_mask, (pad_top, pad_bottom) = _pad_map_to_slo_canvas(
+        ch_map, ch_mask, fovea_in_slo, slo_V_t, slo_V_b, slo_N
+        )
+
+    if ves_chorsegs is not None:
+        cvi_map, _cvi_mask, _ = _pad_map_to_slo_canvas(
+            cvi_map, np.ones_like(cvi_map, dtype=bool),
+            fovea_in_slo, slo_V_t, slo_V_b, slo_N
+        )
     
     # If rotating the depth map, not the SLO
     if not rotate_slo:

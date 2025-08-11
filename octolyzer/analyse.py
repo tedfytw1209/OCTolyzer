@@ -1197,7 +1197,7 @@ NOTE: Subregion volumes will not be computed for CVI map."""
                         logging_list.extend(map_messages)
 
                     # Measure grid for all other metrics and layers other than CVI
-                    dtype = np.uint64
+                    dtype = np.float64
                     unit = 'thickness' if m_type != 'choroid_vessel' else 'area'
                     grid_measure_output = grid.measure_grid(macular_map, 
                                                             fovea_at_slo, 

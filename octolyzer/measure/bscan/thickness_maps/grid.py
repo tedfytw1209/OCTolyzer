@@ -574,6 +574,9 @@ def measure_grid(thick_map, fovea, scale, eye, interp=True, rotate=0,
     img_shape = thick_map.shape
     if isinstance(fovea, int):
         fovea = (fovea, fovea)
+    thick_map = np.asarray(thick_map, dtype=np.float64)
+    thick_map_nan = thick_map.copy()
+    thick_map_nan[thick_map_nan == -1] = np.nan  # -1 當作缺失
 
     # Generate subfield binary masks and labelling (according to laterality) for posterior pole square chess grid
     if measure_type == "square":
@@ -601,7 +604,7 @@ def measure_grid(thick_map, fovea, scale, eye, interp=True, rotate=0,
         grid_subgrids = ["central"] + ["_".join([grid, loc]) for grid in etdrs_regions for loc in etdrs_locs]
 
     # All mask is the entire ROI (whole 6mm circle for ETDRS, whole 7mm square grid for Ppole grid)
-    all_mask = (np.sum(np.array(grid_masks), axis=0) > 0).astype(int)
+    all_mask = (np.nansum(np.array(grid_masks), axis=0) > 0).astype(int)
 
     # Most features are measured as integer, except for CVI
     if dtype == np.uint64:
@@ -619,17 +622,17 @@ def measure_grid(thick_map, fovea, scale, eye, interp=True, rotate=0,
         # Loop over subfield binary masks and labelling
         for sub,mask in zip(grid_subgrids, grid_masks):
             bool_mask = mask.astype(bool)
-            mapmask = thick_map.copy()
+            mapmask = thick_map_nan.copy()
 
             # Check for missing values, replace -1s to NaNs and interpolate using nearest neighbour
             # output to end-user proportion of missing data relative to the size of the subfield.
-            if np.any(mapmask[bool_mask] == -1):
-                prop_missing = np.round(100*np.sum(mapmask[bool_mask] == -1) / bool_mask.sum(),2)
+            if np.any(np.isnan(mapmask[bool_mask])):
+                prop_missing = np.round(100*np.sum(np.isnan(mapmask[bool_mask])) / np.nansum(bool_mask),2)
                 msg = f"{prop_missing}% missing values in {sub} region in {measure_type} grid. Interpolating using nearest neighbour."
                 logging_list.append(msg)
                 logging.warning(msg)
                 mapmask[~bool_mask] = 0
-                mapmask[mapmask == -1] = np.nan
+                #mapmask[mapmask == -1] = np.nan
                 mapmask = interp_missing(mapmask)
 
             # Extract subfield values and interpolate to volume (if not measuring CVI) and take average
@@ -637,38 +640,38 @@ def measure_grid(thick_map, fovea, scale, eye, interp=True, rotate=0,
             all_subr_vals.append(mapmask)
             subr_vals = mapmask[bool_mask]
             if dtype == np.uint64:
-                gridvol_dict[sub] = np.round((delta_xy*subr_vals).sum(),3)
-            grid_dict[sub] = np.round(dtype(subr_vals.mean()),round_idx)
+                gridvol_dict[sub] = np.round(np.nansum(delta_xy*subr_vals),3)
+            grid_dict[sub] = np.round(dtype(np.nanmean(subr_vals)),round_idx)
 
         # Work out average thickness in the entire grid
         for mapmask in all_subr_vals:
             mapmask[mapmask == -1] = 0
-        all_subr_mask = thick_map[all_mask.astype(bool)]
+        all_subr_mask = thick_map_nan[all_mask.astype(bool)]
         max_val_etdrs = all_subr_mask.max()
         if dtype == np.uint64:
-            gridvol_dict["all"] = np.round((delta_xy*all_subr_mask).sum(),3)
-        grid_dict["all"] = np.round(dtype(all_subr_mask.mean()),round_idx)
+            gridvol_dict["all"] = np.round(np.nansum(delta_xy*all_subr_mask),3)
+        grid_dict["all"] = np.round(dtype(np.nanmean(all_subr_mask)),round_idx)
 
     # Same procedure as above but without interpolating - DO NOT RECOMMEND
     else:
-        grid_dict = {sub : np.round(dtype(thick_map[mask.astype(bool)].mean()),round_idx) for (sub,mask) in zip(grid_subgrids, grid_masks)}
-        all_subr_mask = thick_map[all_mask.astype(bool)]
+        grid_dict = {sub : np.round(np.nanmean(thick_map_nan[mask.astype(bool)]),round_idx) for (sub,mask) in zip(grid_subgrids, grid_masks)}
+        all_subr_mask = thick_map_nan[all_mask.astype(bool)]
         max_val_etdrs = all_subr_mask.max()
-        grid_dict["all"] = np.round(dtype(all_subr_mask.mean()),round_idx)
+        grid_dict["all"] = np.round(dtype(np.nanmean(all_subr_mask)),round_idx)
         if dtype == np.uint64:
-            gridvol_dict = {sub : np.round((delta_xy*thick_map[mask.astype(bool)]).sum(),3) for (sub,mask) in zip(grid_subgrids, grid_masks)}
-            gridvol_dict["all"] = np.round((delta_xy*all_subr_mask).sum(),3)
+            gridvol_dict = {sub : np.round(np.nansum(delta_xy*thick_map_nan[mask.astype(bool)]),3) for (sub,mask) in zip(grid_subgrids, grid_masks)}
+            gridvol_dict["all"] = np.round(np.nansum(delta_xy*all_subr_mask),3)
 
     # Clipping value for visualisation is measured as 99.5th percentile to
-    # ensure no extreme outliers at the edge of the map are included in calculation. 
-    clip_val = np.quantile(thick_map[thick_map != -1], q=0.995)
+    # ensure no extreme outliers at the edge of the map are included in calculation.
+    clip_val = np.quantile(thick_map_nan[thick_map_nan != np.nan], q=0.995)
 
     # Plot grid onto map and SLO
     if plot:
         if slo is None:
             print("SLO image not specified. Skipping plot.")
             return grid_dict
-        _ = plot_grid(slo, thick_map, grid_dict, grid_masks, rotate=rotate,
+        _ = plot_grid(slo, thick_map_nan, grid_dict, grid_masks, rotate=rotate,
                       measure_type=measure_type, grid_kwds=grid_kwds,
                       fname=fname, save_path=save_path, clip=clip_val)
 
