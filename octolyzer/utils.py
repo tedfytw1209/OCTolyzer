@@ -645,7 +645,9 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     slo_acq_fixed = slo_acq.copy()
     slo_minmax_x = all_px_points[:,:,0].min(), all_px_points[:,:,0].max()
     slo_minmax_y = all_px_points[:,:,1].min(), all_px_points[:,:,1].max()
-    
+    print("slo_minmax_x", slo_minmax_x)
+    print("slo_minmax_y", slo_minmax_y)
+
     # Work out padding dimensions to ensure the entire fovea-centred acquisition line fits onto slo_fov_max
     pad_y = int(np.ceil(abs(min(0,slo_minmax_y[0])))), int(np.ceil(abs(max(0,slo_minmax_y[1]-slo_N))))
     pad_x = int(np.ceil(abs(min(0,slo_minmax_x[0])))), int(np.ceil(abs(max(0,slo_minmax_x[1]-slo_N))))
