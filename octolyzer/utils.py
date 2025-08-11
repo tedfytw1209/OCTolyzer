@@ -741,6 +741,10 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         
     # Combine metadata and return with data
     metadata = {**bscan_metadict, **slo_metadict}
+    #tmp for debug
+    metadata['all_mm_points'] = all_mm_points
+    metadata['all_px_points'] = all_px_points
+    #
     msg = "Done!"
     logging.append(msg)
     if verbose:
