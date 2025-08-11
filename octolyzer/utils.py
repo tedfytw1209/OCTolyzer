@@ -642,16 +642,20 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     # Create a (potentially) larger copy of the SLO 
     # to contain all acquisition locations
     slo_acq = np.concatenate(3*[slo[...,np.newaxis]], axis=-1)
-    slo_acq_fixed = slo_acq.copy()
+    #slo_acq_fixed = slo_acq.copy()
     slo_minmax_x = all_px_points[:,:,0].min(), all_px_points[:,:,0].max()
     slo_minmax_y = all_px_points[:,:,1].min(), all_px_points[:,:,1].max()
     print("slo_minmax_x", slo_minmax_x)
     print("slo_minmax_y", slo_minmax_y)
+    slo_acq_fixed = slo_acq.copy()[int(max(0,slo_minmax_y[0])):int(min(slo_N,slo_minmax_y[1])), int(max(0,slo_minmax_x[0])):int(min(slo_N,slo_minmax_x[1])), :]
+    print("slo_acq_fixed shape", slo_acq_fixed.shape)
 
     # Work out padding dimensions to ensure the entire fovea-centred acquisition line fits onto slo_fov_max
-    pad_y = int(np.ceil(abs(min(0,slo_minmax_y[0])))), int(np.ceil(abs(max(0,slo_minmax_y[1]-slo_N))))
-    pad_x = int(np.ceil(abs(min(0,slo_minmax_x[0])))), int(np.ceil(abs(max(0,slo_minmax_x[1]-slo_N))))
-    slo_acq = np.pad(slo_acq, (pad_y, pad_x, (0,0)), mode='constant')
+    #pad_y = int(np.ceil(abs(min(0,slo_minmax_y[0])))), int(np.ceil(abs(max(0,slo_minmax_y[1]-slo_N))))
+    #pad_x = int(np.ceil(abs(min(0,slo_minmax_x[0])))), int(np.ceil(abs(max(0,slo_minmax_x[1]-slo_N))))
+    #slo_acq = np.pad(slo_acq, (pad_y, pad_x, (0,0)), mode='constant')
+    pad_y = int(np.ceil(abs(max(0,slo_minmax_y[0])))), int(np.ceil(abs(min(0,slo_minmax_y[1]-slo_N))))
+    pad_x = int(np.ceil(abs(max(0,slo_minmax_x[0])))), int(np.ceil(abs(min(0,slo_minmax_x[1]-slo_N))))
     
     # For peripapillary scans, we draw a circular ROI
     if bscan_type == "Peripapillary": ## Not Used
@@ -743,9 +747,6 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         
     # Combine metadata and return with data
     metadata = {**bscan_metadict, **slo_metadict}
-    #tmp for debug
-    metadata['all_mm_points'] = all_mm_points
-    metadata['all_px_points'] = all_px_points
     #
     msg = "Done!"
     logging.append(msg)
