@@ -655,8 +655,8 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     #pad_y = int(np.ceil(abs(min(0,slo_minmax_y[0])))), int(np.ceil(abs(max(0,slo_minmax_y[1]-slo_N))))
     #pad_x = int(np.ceil(abs(min(0,slo_minmax_x[0])))), int(np.ceil(abs(max(0,slo_minmax_x[1]-slo_N))))
     #slo_acq = np.pad(slo_acq, (pad_y, pad_x, (0,0)), mode='constant')
-    pad_y = -int(np.ceil(abs(max(0,slo_minmax_y[0])))), -int(np.ceil(abs(min(0,slo_minmax_y[1]-slo_N))))
-    pad_x = -int(np.ceil(abs(max(0,slo_minmax_x[0])))), -int(np.ceil(abs(min(0,slo_minmax_x[1]-slo_N))))
+    pad_y = int(np.ceil(abs(max(0,slo_minmax_y[0])))), int(np.ceil(abs(min(0,slo_minmax_y[1]-slo_N))))
+    pad_x = int(np.ceil(abs(max(0,slo_minmax_x[0])))), int(np.ceil(abs(min(0,slo_minmax_x[1]-slo_N))))
     
     # For peripapillary scans, we draw a circular ROI
     if bscan_type == "Peripapillary": ## Not Used
@@ -755,7 +755,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
         print(msg)
 
     # collect SLO output
-    slo_output = (slo, slo_acq_fixed, slo_acq, (pad_x,pad_y))
+    slo_output = (slo, slo_acq_fixed, slo_acq, (-pad_x,-pad_y))
         
     return bscan_data, metadata, slo_output, layer_pairwise, logging
 
