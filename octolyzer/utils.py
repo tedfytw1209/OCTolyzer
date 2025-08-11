@@ -647,7 +647,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
     slo_minmax_y = all_px_points[:,:,1].min(), all_px_points[:,:,1].max()
     print("slo_minmax_x", slo_minmax_x)
     print("slo_minmax_y", slo_minmax_y)
-    slo_acq_fixed = slo_acq.copy()[int(max(0,slo_minmax_y[0])):int(min(slo_N,slo_minmax_y[1])), int(max(0,slo_minmax_x[0])):int(min(slo_N,slo_minmax_x[1])), :]
+    slo_acq_fixed = slo_acq.copy()[int(max(0,slo_minmax_y[0])):int(min(slo_N,slo_minmax_y[1])), int(max(0,slo_minmax_x[0])):int(min(slo_N,slo_minmax_x[1])+0.5), :]
     print("slo_acq_fixed shape", slo_acq_fixed.shape)
 
     # Work out padding dimensions to ensure the entire fovea-centred acquisition line fits onto slo_fov_max
@@ -704,7 +704,7 @@ def load_dcmfile(dcm_oct_path, dcm_slo_path, preprocess=False, custom_maps=[], l
                     x_idx, y_idx = [[y,x], [x,y]][bscan_type != "V-line"]
 
                 # Overlay acquisition locations
-                if (0 <= x_idx < slo_N) & (0 <= y_idx < slo_N):
+                if (0 <= x_idx < slo_acq_fixed.shape[1]) & (0 <= y_idx < slo_acq_fixed.shape[0]):
                     slo_acq_fixed[y_idx, x_idx] = loc_colour
                 slo_acq[pad_y[0]+y_idx, pad_x[0]+x_idx] = loc_colour
                     
