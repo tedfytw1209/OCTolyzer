@@ -556,7 +556,7 @@ def analyse(path,
             
             # Extract fovea from list using fovea_slice_num
             fovea = foveas[fovea_slice_num]
-            print(foveas, fovea)
+    print('foveas', foveas, 'fovea', fovea)
 
     # Detect retinal layer keys
     pairwise_keys = list(layer_pairwise.keys())
