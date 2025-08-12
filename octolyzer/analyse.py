@@ -170,7 +170,7 @@ def analyse(path,
     map_kwds = [etdrs_kwds, square_kwds]
 
     # By default we save individual results and collate segmentations
-    collate_segmentations = 1
+    collate_segmentations = 0
     
     # Default bscan/slo measurement parameters
     N_measures = "all" # Measuring all thicknesses across ROI to average over
