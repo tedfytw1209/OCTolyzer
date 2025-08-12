@@ -162,7 +162,7 @@ class Choroidalyzer:
         with torch.no_grad():
             for img in tqdm(img_list, desc='Predicting', leave=False, disable=self.verbose):
                 pred, fovea, fov_score = self.predict_img(img, soft_pred=soft_pred)
-                if fovea != 0:
+                if isinstance(fovea, np.ndarray):
                     preds.append(pred)
                     foveas.append(fovea)
                     fov_scores.append(fov_score)
