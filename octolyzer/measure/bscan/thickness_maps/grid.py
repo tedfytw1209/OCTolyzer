@@ -671,9 +671,9 @@ def measure_grid(thick_map, fovea, scale, eye, interp=True, rotate=0,
         if slo is None:
             print("SLO image not specified. Skipping plot.")
             return grid_dict
-        _ = plot_grid(slo, thick_map_nan, grid_dict, grid_masks, rotate=rotate,
-                      measure_type=measure_type, grid_kwds=grid_kwds,
-                      fname=fname, save_path=save_path, clip=clip_val)
+        #_ = plot_grid(slo, thick_map_nan, grid_dict, grid_masks, rotate=rotate,
+        #              measure_type=measure_type, grid_kwds=grid_kwds,
+        #              fname=fname, save_path=save_path, clip=clip_val)
 
     return grid_dict, gridvol_dict, logging_list
 
