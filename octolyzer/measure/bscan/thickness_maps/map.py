@@ -665,8 +665,35 @@ def build_chth_map(ct_data, ct_acqs, ct_topStx, acq_centre, N_stack, slo_Vs,
     
     return ct_padded, ct_mask_padded
 
+#0811 add
+def trim_map(depth_map, mask, length=2, fill_value=-1):
+    """
+    以形態學侵蝕修掉邊界 length 次，將區域外填成 fill_value（預設 -1）。
+    若你改成 NaN-safe 管線，呼叫時請用 fill_value=np.nan。
+    """
+    # 輸入保護
+    new_map = np.array(depth_map, copy=True, dtype=np.float64)
+    mask_u8 = (np.asarray(mask).astype(np.uint8) * 255)
 
+    # 空 mask：整張設為填充值
+    if not np.any(mask_u8):
+        new_map[...] = fill_value
+        return new_map
 
+    # 3x3 核做一次侵蝕 ≈ 修掉一圈邊界
+    kernel = np.ones((3, 3), np.uint8)
+    iters = int(max(0, length))
+
+    for _ in range(iters):
+        eroded = cv2.erode(mask_u8, kernel, iterations=1)
+        mask_u8 = eroded
+        if not np.any(mask_u8):
+            break  # 全被修掉就提前結束
+
+    final_mask = mask_u8.astype(bool)
+    new_map[~final_mask] = fill_value
+    return new_map
+'''
 def trim_map(depth_map, mask, length=2):
     """
     Trims extreme values from a given map by applying a mask. This function is typically used when
@@ -714,7 +741,7 @@ def trim_map(depth_map, mask, length=2):
         mask[boundary[:,1], boundary[:,0]] = 0
     new_map[~mask.astype(bool)] = -1
     return new_map
-
+'''
 
 def _pad_map_to_slo_canvas(map2d, mask2d, fovea_in_slo, slo_V_t, slo_V_b, slo_N):
     """
