@@ -162,9 +162,10 @@ class Choroidalyzer:
         with torch.no_grad():
             for img in tqdm(img_list, desc='Predicting', leave=False, disable=self.verbose):
                 pred, fovea, fov_score = self.predict_img(img, soft_pred=soft_pred)
-                preds.append(pred)
-                foveas.append(fovea)
-                fov_scores.append(fov_score)
+                if fovea != 0:
+                    preds.append(pred)
+                    foveas.append(fovea)
+                    fov_scores.append(fov_score)
         return preds, foveas, np.concatenate(fov_scores)
 
     # TODO: Peripapillary scans will not work here
