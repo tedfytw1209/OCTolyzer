@@ -553,10 +553,10 @@ def analyse(path,
                     fovea_slice_num = int(fov_scores.argmax(axis=0))
             else:
                 fovea_slice_num = N_scans//2 
+            print('foveas', foveas)
             print('fovea_slice_num', fovea_slice_num)
             # Extract fovea from list using fovea_slice_num
             fovea = foveas[fovea_slice_num]
-    print('foveas', foveas, 'fovea', fovea)
 
     # Detect retinal layer keys
     pairwise_keys = list(layer_pairwise.keys())
